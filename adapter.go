@@ -71,6 +71,66 @@ func NewAdapter(url string, dbSpecified ...bool) *Adapter {
 	return a
 }
 
+func (a *Adapter) createIndice() {
+	var err error
+
+	index := mgo.Index{
+		Key: []string{"ptype"},
+	}
+	err = a.collection.EnsureIndex(index)
+	if err != nil {
+		panic(err)
+	}
+
+	index = mgo.Index{
+		Key: []string{"v0"},
+	}
+	err = a.collection.EnsureIndex(index)
+	if err != nil {
+		panic(err)
+	}
+
+	index = mgo.Index{
+		Key: []string{"v1"},
+	}
+	err = a.collection.EnsureIndex(index)
+	if err != nil {
+		panic(err)
+	}
+
+	index = mgo.Index{
+		Key: []string{"v2"},
+	}
+	err = a.collection.EnsureIndex(index)
+	if err != nil {
+		panic(err)
+	}
+
+	index = mgo.Index{
+		Key: []string{"v3"},
+	}
+	err = a.collection.EnsureIndex(index)
+	if err != nil {
+		panic(err)
+	}
+
+	index = mgo.Index{
+		Key: []string{"v4"},
+	}
+	err = a.collection.EnsureIndex(index)
+	if err != nil {
+		panic(err)
+	}
+
+	index = mgo.Index{
+		Key: []string{"v5"},
+	}
+	err = a.collection.EnsureIndex(index)
+	if err != nil {
+		panic(err)
+	}
+}
+
 func (a *Adapter) open() {
 	session, err := mgo.Dial(a.url)
 	if err != nil {
@@ -88,6 +148,8 @@ func (a *Adapter) open() {
 
 	a.session = session
 	a.collection = collection
+
+	a.createIndice()
 }
 
 func (a *Adapter) close() {
