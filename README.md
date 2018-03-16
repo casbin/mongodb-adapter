@@ -45,6 +45,21 @@ func main() {
 }
 ```
 
+## Filtered Policies
+
+```go
+import "gopkg.in/mgo.v2/bson"
+
+// This adapter also implements the FilteredAdapter interface. This allows for
+// efficent, scalable enforcement of very large policies:
+filter := &bson.M{"v0": "alice"}
+e.LoadFilteredPolicy(filter)
+
+// The loaded policy is now a subset of the policy in storage, containing only
+// the policy lines that match the provided filter. This filter should be a
+// valid MongoDB selector using BSON. A filtered policy cannot be saved.
+```
+
 ## Getting Help
 
 - [Casbin](https://github.com/casbin/casbin)

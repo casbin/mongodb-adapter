@@ -15,6 +15,7 @@
 package mongodbadapter
 
 import (
+	"errors"
 	"runtime"
 
 	"github.com/casbin/casbin/model"
@@ -38,6 +39,7 @@ type adapter struct {
 	url        string
 	session    *mgo.Session
 	collection *mgo.Collection
+	filtered   bool
 }
 
 // finalizer is the destructor for adapter.
@@ -57,6 +59,13 @@ func NewAdapter(url string) persist.Adapter {
 	runtime.SetFinalizer(a, finalizer)
 
 	return a
+}
+
+// NewFilteredAdapter is the constructor for FilteredAdapter. Behavior is
+// otherwise indentical to the NewAdapter function.
+func NewFilteredAdapter(url string) persist.FilteredAdapter {
+	// The adapter already supports the new interface, it just needs to be retyped.
+	return NewAdapter(url).(*adapter)
 }
 
 func (a *adapter) open() {
@@ -156,13 +165,29 @@ LineEnd:
 
 // LoadPolicy loads policy from database.
 func (a *adapter) LoadPolicy(model model.Model) error {
+	return a.LoadFilteredPolicy(model, nil)
+}
+
+// LoadFilteredPolicy loads matching policy lines from database. If not nil,
+// the filter must be a valid MongoDB selector.
+func (a *adapter) LoadFilteredPolicy(model model.Model, filter interface{}) error {
+	if filter == nil {
+		a.filtered = false
+	} else {
+		a.filtered = true
+	}
 	line := CasbinRule{}
-	iter := a.collection.Find(nil).Iter()
+	iter := a.collection.Find(filter).Iter()
 	for iter.Next(&line) {
 		loadPolicyLine(line, model)
 	}
 
 	return iter.Close()
+}
+
+// IsFiltered returns true if the loaded policy has been filtered.
+func (a *adapter) IsFiltered() bool {
+	return a.filtered
 }
 
 func savePolicyLine(ptype string, rule []string) CasbinRule {
@@ -194,6 +219,9 @@ func savePolicyLine(ptype string, rule []string) CasbinRule {
 
 // SavePolicy saves policy to database.
 func (a *adapter) SavePolicy(model model.Model) error {
+	if a.filtered {
+		return errors.New("cannot save a filtered policy")
+	}
 	if err := a.dropTable(); err != nil {
 		return err
 	}
@@ -243,22 +271,34 @@ func (a *adapter) RemoveFilteredPolicy(sec string, ptype string, fieldIndex int,
 	selector["ptype"] = ptype
 
 	if fieldIndex <= 0 && 0 < fieldIndex+len(fieldValues) {
-		selector["v0"] = fieldValues[0-fieldIndex]
+		if fieldValues[0-fieldIndex] != "" {
+			selector["v0"] = fieldValues[0-fieldIndex]
+		}
 	}
 	if fieldIndex <= 1 && 1 < fieldIndex+len(fieldValues) {
-		selector["v1"] = fieldValues[1-fieldIndex]
+		if fieldValues[1-fieldIndex] != "" {
+			selector["v1"] = fieldValues[1-fieldIndex]
+		}
 	}
 	if fieldIndex <= 2 && 2 < fieldIndex+len(fieldValues) {
-		selector["v2"] = fieldValues[2-fieldIndex]
+		if fieldValues[2-fieldIndex] != "" {
+			selector["v2"] = fieldValues[2-fieldIndex]
+		}
 	}
 	if fieldIndex <= 3 && 3 < fieldIndex+len(fieldValues) {
-		selector["v3"] = fieldValues[3-fieldIndex]
+		if fieldValues[3-fieldIndex] != "" {
+			selector["v3"] = fieldValues[3-fieldIndex]
+		}
 	}
 	if fieldIndex <= 4 && 4 < fieldIndex+len(fieldValues) {
-		selector["v4"] = fieldValues[4-fieldIndex]
+		if fieldValues[4-fieldIndex] != "" {
+			selector["v4"] = fieldValues[4-fieldIndex]
+		}
 	}
 	if fieldIndex <= 5 && 5 < fieldIndex+len(fieldValues) {
-		selector["v5"] = fieldValues[5-fieldIndex]
+		if fieldValues[5-fieldIndex] != "" {
+			selector["v5"] = fieldValues[5-fieldIndex]
+		}
 	}
 
 	_, err := a.collection.RemoveAll(selector)

@@ -20,6 +20,7 @@ import (
 
 	"github.com/casbin/casbin"
 	"github.com/casbin/casbin/util"
+	"gopkg.in/mgo.v2/bson"
 )
 
 var testDbURL = os.Getenv("TEST_MONGODB_URL")
@@ -129,6 +130,65 @@ func TestAdapter(t *testing.T) {
 		t.Errorf("Expected LoadPolicy() to be successful; got %v", err)
 	}
 	testGetPolicy(t, e, [][]string{{"bob", "data2", "write"}})
+
+	e.RemoveFilteredPolicy(2, "write")
+	if err := e.LoadPolicy(); err != nil {
+		t.Errorf("Expected LoadPolicy() to be successful; got %v", err)
+	}
+	testGetPolicy(t, e, [][]string{})
+
+	e.AddPolicy("alice", "data3", "read")
+	// Reload the policy from the storage to see the effect.
+	if err := e.LoadPolicy(); err != nil {
+		t.Errorf("Expected LoadPolicy() to be successful; got %v", err)
+	}
+	// The policy has a new rule: {"alice", "data1", "write"}.
+	testGetPolicy(t, e, [][]string{{"alice", "data3", "read"}})
+	// test RemoveFiltered Policy with "" fileds
+	e.RemoveFilteredPolicy(0, "alice", "", "read")
+	testGetPolicy(t, e, [][]string{})
+	if err := e.LoadPolicy(); err != nil {
+		t.Errorf("Expected LoadPolicy() to be successful; got %v", err)
+	}
+	testGetPolicy(t, e, [][]string{})
+}
+
+func TestFilteredAdapter(t *testing.T) {
+	// Now the DB has policy, so we can provide a normal use case.
+	// Create an adapter and an enforcer.
+	// NewEnforcer() will load the policy automatically.
+	a := NewAdapter(getDbURL())
+	e := casbin.NewEnforcer("examples/rbac_model.conf", a)
+
+	// Load filtered policies from the database.
+	e.AddPolicy("alice", "data1", "write")
+	e.AddPolicy("bob", "data2", "write")
+	// Reload the filtered policy from the storage.
+	filter := &bson.M{"v0": "bob"}
+	if err := e.LoadFilteredPolicy(filter); err != nil {
+		t.Errorf("Expected LoadFilteredPolicy() to be successful; got %v", err)
+	}
+	// Only bob's policy should have been loaded
+	testGetPolicy(t, e, [][]string{{"bob", "data2", "write"}})
+
+	// Verify that alice's policy remains intact in the database.
+	filter = &bson.M{"v0": "alice"}
+	if err := e.LoadFilteredPolicy(filter); err != nil {
+		t.Errorf("Expected LoadFilteredPolicy() to be successful; got %v", err)
+	}
+	// Only alice's policy should have been loaded,
+	testGetPolicy(t, e, [][]string{{"alice", "data1", "write"}})
+
+	// Test safe handling of SavePolicy when using filtered policies.
+	if err := e.SavePolicy(); err == nil {
+		t.Errorf("Expected SavePolicy() to fail for a filtered policy")
+	}
+	if err := e.LoadPolicy(); err != nil {
+		t.Errorf("Expected LoadPolicy() to be successful; got %v", err)
+	}
+	if err := e.SavePolicy(); err != nil {
+		t.Errorf("Expected SavePolicy() to be successful; got %v", err)
+	}
 
 	e.RemoveFilteredPolicy(2, "write")
 	if err := e.LoadPolicy(); err != nil {
