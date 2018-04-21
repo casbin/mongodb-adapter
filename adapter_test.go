@@ -136,6 +136,21 @@ func TestAdapter(t *testing.T) {
 		t.Errorf("Expected LoadPolicy() to be successful; got %v", err)
 	}
 	testGetPolicy(t, e, [][]string{})
+
+	e.AddPolicy("alice", "data3", "read")
+	// Reload the policy from the storage to see the effect.
+	if err := e.LoadPolicy(); err != nil {
+		t.Errorf("Expected LoadPolicy() to be successful; got %v", err)
+	}
+	// The policy has a new rule: {"alice", "data1", "write"}.
+	testGetPolicy(t, e, [][]string{{"alice", "data3", "read"}})
+	// test RemoveFiltered Policy with "" fileds
+	e.RemoveFilteredPolicy(0, "alice", "", "read")
+	testGetPolicy(t, e, [][]string{})
+	if err := e.LoadPolicy(); err != nil {
+		t.Errorf("Expected LoadPolicy() to be successful; got %v", err)
+	}
+	testGetPolicy(t, e, [][]string{})
 }
 
 func TestFilteredAdapter(t *testing.T) {

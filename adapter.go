@@ -271,32 +271,32 @@ func (a *adapter) RemoveFilteredPolicy(sec string, ptype string, fieldIndex int,
 	selector["ptype"] = ptype
 
 	if fieldIndex <= 0 && 0 < fieldIndex+len(fieldValues) {
-		if len(fieldValues[0-fieldIndex]) !=0 {
+		if fieldValues[0-fieldIndex] != "" {
 			selector["v0"] = fieldValues[0-fieldIndex]
 		}
 	}
 	if fieldIndex <= 1 && 1 < fieldIndex+len(fieldValues) {
-		if len(fieldValues[1-fieldIndex]) !=0 {
+		if fieldValues[1-fieldIndex] != "" {
 			selector["v1"] = fieldValues[1-fieldIndex]
 		}
 	}
 	if fieldIndex <= 2 && 2 < fieldIndex+len(fieldValues) {
-		if len(fieldValues[2-fieldIndex]) !=0 {
+		if fieldValues[2-fieldIndex] != "" {
 			selector["v2"] = fieldValues[2-fieldIndex]
 		}
 	}
 	if fieldIndex <= 3 && 3 < fieldIndex+len(fieldValues) {
-		if len(fieldValues[3-fieldIndex]) !=0 {
+		if fieldValues[3-fieldIndex] != "" {
 			selector["v3"] = fieldValues[3-fieldIndex]
 		}
 	}
 	if fieldIndex <= 4 && 4 < fieldIndex+len(fieldValues) {
-		if len(fieldValues[4-fieldIndex]) !=0 {
+		if fieldValues[4-fieldIndex] != "" {
 			selector["v4"] = fieldValues[4-fieldIndex]
 		}
 	}
 	if fieldIndex <= 5 && 5 < fieldIndex+len(fieldValues) {
-		if len(fieldValues[5-fieldIndex]) !=0 {
+		if fieldValues[5-fieldIndex] != "" {
 			selector["v5"] = fieldValues[5-fieldIndex]
 		}
 	}
