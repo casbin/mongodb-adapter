@@ -137,6 +137,34 @@ func TestAdapter(t *testing.T) {
 	}
 	testGetPolicy(t, e, [][]string{})
 }
+func TestDeleteFilteredAdapter(t *testing.T) {
+	a := NewAdapter(getDbURL())
+	e := casbin.NewEnforcer("examples/rbac_tenant_service.conf", a)
+
+	e.AddPolicy("domain1", "alice", "data3", "read", "accept", "service1")
+	e.AddPolicy("domain1", "alice", "data3", "write", "accept", "service2")
+	e.AddPolicy("domain1", "bob", "data3", "write", "accept", "service3")
+
+	// Reload the policy from the storage to see the effect.
+	if err := e.LoadPolicy(); err != nil {
+		t.Errorf("Expected LoadPolicy() to be successful; got %v", err)
+	}
+	// The policy has a new rule: {"alice", "data1", "write"}.
+	testGetPolicy(t, e, [][]string{{"domain1", "alice", "data3", "read", "accept", "service1"},
+		{"domain1", "alice", "data3", "write", "accept", "service2"}})
+	// test RemoveFiltered Policy with "" fileds
+	e.RemoveFilteredPolicy(0, "domain1", "", "", "read")
+	if err := e.LoadPolicy(); err != nil {
+		t.Errorf("Expected LoadPolicy() to be successful; got %v", err)
+	}
+	testGetPolicy(t, e, [][]string{{"domain1", "alice", "data3", "write", "accept", "service2"}})
+
+	e.RemoveFilteredPolicy(0, "domain1", "", "", "", "", "service2")
+	if err := e.LoadPolicy(); err != nil {
+		t.Errorf("Expected LoadPolicy() to be successful; got %v", err)
+	}
+	testGetPolicy(t, e, [][]string{})
+}
 
 func TestFilteredAdapter(t *testing.T) {
 	// Now the DB has policy, so we can provide a normal use case.
