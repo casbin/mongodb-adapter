@@ -26,7 +26,10 @@ func main() {
 	// Or you can use an existing DB "abc" like this:
 	// The adapter will use the table named "casbin_rule".
 	// If it doesn't exist, the adapter will create it automatically.
-	// a := mongodbadapter.NewAdapter("127.0.0.1:27017/abc", true)
+	// a := mongodbadapter.NewAdapter("127.0.0.1:27017/abc")
+	
+	// Or you can appoint the table name "rule" like this.
+	// a := mongodbadapter.NewAdapter("127.0.0.1:27017/abc", "rule")
 	
 	e := casbin.NewEnforcer("examples/rbac_model.conf", a)
 	
