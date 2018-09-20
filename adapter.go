@@ -51,9 +51,9 @@ func finalizer(a *adapter) {
 // in the Mongo URL, 'casbin' will be used as database name.
 // Can use provided table name.
 func NewAdapter(url string, tableName ...string) persist.Adapter {
+	a := &adapter{url: url}
 
 	// Open the DB, create it if not existed.
-	a := &adapter{url: url}
 	if len(tableName) == 0 {
 		a.open()
 	} else if len(tableName) == 1 {
