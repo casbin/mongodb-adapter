@@ -49,24 +49,18 @@ func finalizer(a *adapter) {
 
 // NewAdapter is the constructor for Adapter. If database name is not provided
 // in the Mongo URL, 'casbin' will be used as database name.
-func NewAdapter(url string) persist.Adapter {
-	a := &adapter{url: url}
-
-	// Open the DB, create it if not existed.
-	a.open()
-
-	// Call the destructor when the object is released.
-	runtime.SetFinalizer(a, finalizer)
-
-	return a
-}
-
 // Can use provided table name.
-func NewDBAdapter(url, name string) persist.Adapter {
-	a := &adapter{url: url}
+func NewAdapter(url string, tableName ...string) persist.Adapter {
 
 	// Open the DB, create it if not existed.
-	a.openByName(name)
+	a := &adapter{url: url}
+	if len(tableName) == 0 {
+		a.openByName()
+	} else if len(tableName) == 1 {
+		a.openByName(tableName[0])
+	} else {
+		panic(errors.New("invalid parameter: tableName"))
+	}
 
 	// Call the destructor when the object is released.
 	runtime.SetFinalizer(a, finalizer)
@@ -81,7 +75,8 @@ func NewFilteredAdapter(url string) persist.FilteredAdapter {
 	return NewAdapter(url).(*adapter)
 }
 
-func (a *adapter) open() {
+func (a *adapter) open(tableName ...string) {
+	var collection *mgo.Collection
 	dI, err := mgo.ParseURL(a.url)
 	if err != nil {
 		panic(err)
@@ -104,37 +99,11 @@ func (a *adapter) open() {
 	}
 
 	db := session.DB(dI.Database)
-
-	collection := db.C("casbin_rule")
-
-	a.session = session
-	a.collection = collection
-	indexes := []string{"ptype", "v0", "v1", "v2", "v3", "v4", "v5"}
-	for _, k := range indexes {
-		if err := a.collection.EnsureIndexKey(k); err != nil {
-			panic(err)
-		}
+	if len(tableName) == 0 {
+		collection = db.C("casbin_rule")
+	} else {
+		collection = db.C(tableName[0])
 	}
-}
-
-func (a *adapter) openByName(name string) {
-	dI, err := mgo.ParseURL(a.url)
-	if err != nil {
-		panic(err)
-	}
-	dI.FailFast = true
-
-	if dI.Database == "" {
-		dI.Database = "casbin"
-	}
-
-	session, err := mgo.DialWithInfo(dI)
-	if err != nil {
-		panic(err)
-	}
-
-	db := session.DB(dI.Database)
-	collection := db.C(name)
 
 	a.session = session
 	a.collection = collection
