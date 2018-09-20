@@ -61,7 +61,7 @@ func NewAdapter(url string) persist.Adapter {
 	return a
 }
 
-// Can use provided database name.
+// Can use provided table name.
 func NewDBAdapter(url, name string) persist.Adapter {
 	a := &adapter{url: url}
 
