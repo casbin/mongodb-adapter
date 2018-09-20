@@ -104,7 +104,6 @@ func (a *adapter) open() {
 	}
 
 	db := session.DB(dI.Database)
-
 	collection := db.C("casbin_rule")
 
 	a.session = session
