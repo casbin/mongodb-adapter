@@ -61,6 +61,19 @@ func NewAdapter(url string) persist.Adapter {
 	return a
 }
 
+// Can use provided database name.
+func NewDBAdapter(url, name string) persist.Adapter {
+	a := &adapter{url: url}
+
+	// Open the DB, create it if not existed.
+	a.openByName(name)
+
+	// Call the destructor when the object is released.
+	runtime.SetFinalizer(a, finalizer)
+
+	return a
+}
+
 // NewFilteredAdapter is the constructor for FilteredAdapter. Behavior is
 // otherwise indentical to the NewAdapter function.
 func NewFilteredAdapter(url string) persist.FilteredAdapter {
@@ -91,11 +104,40 @@ func (a *adapter) open() {
 	}
 
 	db := session.DB(dI.Database)
+
 	collection := db.C("casbin_rule")
 
 	a.session = session
 	a.collection = collection
+	indexes := []string{"ptype", "v0", "v1", "v2", "v3", "v4", "v5"}
+	for _, k := range indexes {
+		if err := a.collection.EnsureIndexKey(k); err != nil {
+			panic(err)
+		}
+	}
+}
 
+func (a *adapter) openByName(name string) {
+	dI, err := mgo.ParseURL(a.url)
+	if err != nil {
+		panic(err)
+	}
+	dI.FailFast = true
+
+	if dI.Database == "" {
+		dI.Database = "casbin"
+	}
+
+	session, err := mgo.DialWithInfo(dI)
+	if err != nil {
+		panic(err)
+	}
+
+	db := session.DB(dI.Database)
+	collection := db.C(name)
+
+	a.session = session
+	a.collection = collection
 	indexes := []string{"ptype", "v0", "v1", "v2", "v3", "v4", "v5"}
 	for _, k := range indexes {
 		if err := a.collection.EnsureIndexKey(k); err != nil {
