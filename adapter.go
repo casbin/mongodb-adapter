@@ -55,9 +55,9 @@ func NewAdapter(url string, tableName ...string) persist.Adapter {
 	// Open the DB, create it if not existed.
 	a := &adapter{url: url}
 	if len(tableName) == 0 {
-		a.openByName()
+		a.open()
 	} else if len(tableName) == 1 {
-		a.openByName(tableName[0])
+		a.open(tableName[0])
 	} else {
 		panic(errors.New("invalid parameter: tableName"))
 	}
