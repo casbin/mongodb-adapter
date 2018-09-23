@@ -1,0 +1,4 @@
+github.com/casbin/casbin v1.6.0 h1:uIhuV5I0ilXGUm3y+xJ8nG7VOnYDeZZQiNsFOTF2QmI=
+github.com/casbin/casbin v1.6.0/go.mod h1:c67qKN6Oum3UF5Q1+BByfFxkwKvhwW57ITjqwtzR1KE=
+github.com/globalsign/mgo v0.0.0-20180905125535-1ca0a4f7cbcb h1:D4uzjWwKYQ5XnAvUbuvHW93esHg7F8N/OYeBBcJoTr0=
+github.com/globalsign/mgo v0.0.0-20180905125535-1ca0a4f7cbcb/go.mod h1:xkRDCp4j0OGD1HRkm4kmhM+pmpv3AKq5SU7GMg4oO/Q=
