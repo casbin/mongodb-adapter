@@ -51,6 +51,7 @@ func finalizer(a *adapter) {
 // in the Mongo URL, 'casbin' will be used as database name.
 func NewAdapter(url string) persist.Adapter {
 	a := &adapter{url: url}
+	a.filtered = false
 
 	// Open the DB, create it if not existed.
 	a.open()
@@ -61,11 +62,13 @@ func NewAdapter(url string) persist.Adapter {
 	return a
 }
 
-// NewFilteredAdapter is the constructor for FilteredAdapter. Behavior is
-// otherwise indentical to the NewAdapter function.
+// NewFilteredAdapter is the constructor for FilteredAdapter.
+// Casbin will not automatically call LoadPolicy() for a filtered adapter.
 func NewFilteredAdapter(url string) persist.FilteredAdapter {
-	// The adapter already supports the new interface, it just needs to be retyped.
-	return NewAdapter(url).(*adapter)
+	a := NewAdapter(url).(*adapter)
+	a.filtered = true
+
+	return a
 }
 
 func (a *adapter) open() {
