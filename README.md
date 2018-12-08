@@ -48,7 +48,7 @@ func main() {
 ## Filtered Policies
 
 ```go
-import "gopkg.in/mgo.v2/bson"
+import "github.com/globalsign/mgo/bson"
 
 // This adapter also implements the FilteredAdapter interface. This allows for
 // efficent, scalable enforcement of very large policies:
