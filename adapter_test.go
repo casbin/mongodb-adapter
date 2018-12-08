@@ -33,6 +33,7 @@ func getDbURL() string {
 }
 
 func testGetPolicy(t *testing.T, e *casbin.Enforcer, res [][]string) {
+	t.Helper()
 	myRes := e.GetPolicy()
 	t.Log("Policy: ", myRes)
 
