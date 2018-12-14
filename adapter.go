@@ -36,7 +36,7 @@ type CasbinRule struct {
 
 // adapter represents the MongoDB adapter for policy storage.
 type adapter struct {
-	url        string
+	dialInfo   *mgo.DialInfo
 	session    *mgo.Session
 	collection *mgo.Collection
 	filtered   bool
@@ -50,7 +50,18 @@ func finalizer(a *adapter) {
 // NewAdapter is the constructor for Adapter. If database name is not provided
 // in the Mongo URL, 'casbin' will be used as database name.
 func NewAdapter(url string) persist.Adapter {
-	a := &adapter{url: url}
+	dI, err := mgo.ParseURL(url)
+	if err != nil {
+		panic(err)
+	}
+
+	return NewAdapterWithDialInfo(dI)
+}
+
+// NewAdapterWithDialInfo is an alternative constructor for Adapter
+// that does the same as NewAdapter, but uses mgo.DialInfo instead of a Mongo URL
+func NewAdapterWithDialInfo(dI *mgo.DialInfo) persist.Adapter {
+	a := &adapter{dialInfo: dI}
 	a.filtered = false
 
 	// Open the DB, create it if not existed.
@@ -72,28 +83,23 @@ func NewFilteredAdapter(url string) persist.FilteredAdapter {
 }
 
 func (a *adapter) open() {
-	dI, err := mgo.ParseURL(a.url)
-	if err != nil {
-		panic(err)
-	}
-
 	// FailFast will cause connection and query attempts to fail faster when
 	// the server is unavailable, instead of retrying until the configured
 	// timeout period. Note that an unavailable server may silently drop
 	// packets instead of rejecting them, in which case it's impossible to
 	// distinguish it from a slow server, so the timeout stays relevant.
-	dI.FailFast = true
+	a.dialInfo.FailFast = true
 
-	if dI.Database == "" {
-		dI.Database = "casbin"
+	if a.dialInfo.Database == "" {
+		a.dialInfo.Database = "casbin"
 	}
 
-	session, err := mgo.DialWithInfo(dI)
+	session, err := mgo.DialWithInfo(a.dialInfo)
 	if err != nil {
 		panic(err)
 	}
 
-	db := session.DB(dI.Database)
+	db := session.DB(a.dialInfo.Database)
 	collection := db.C("casbin_rule")
 
 	a.session = session
