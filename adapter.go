@@ -118,7 +118,10 @@ func (a *adapter) close() {
 }
 
 func (a *adapter) dropTable() error {
-	err := a.collection.DropCollection()
+	session := a.session.Copy()
+	defer session.Close()
+
+	err := a.collection.With(session).DropCollection()
 	if err != nil {
 		if err.Error() != "ns not found" {
 			return err
@@ -186,7 +189,11 @@ func (a *adapter) LoadFilteredPolicy(model model.Model, filter interface{}) erro
 		a.filtered = true
 	}
 	line := CasbinRule{}
-	iter := a.collection.Find(filter).Iter()
+
+	session := a.session.Copy()
+	defer session.Close()
+
+	iter := a.collection.With(session).Find(filter).Iter()
 	for iter.Next(&line) {
 		loadPolicyLine(line, model)
 	}
@@ -251,19 +258,30 @@ func (a *adapter) SavePolicy(model model.Model) error {
 		}
 	}
 
-	return a.collection.Insert(lines...)
+	session := a.session.Copy()
+	defer session.Close()
+
+	return a.collection.With(session).Insert(lines...)
 }
 
 // AddPolicy adds a policy rule to the storage.
 func (a *adapter) AddPolicy(sec string, ptype string, rule []string) error {
 	line := savePolicyLine(ptype, rule)
-	return a.collection.Insert(line)
+
+	session := a.session.Copy()
+	defer session.Close()
+
+	return a.collection.With(session).Insert(line)
 }
 
 // RemovePolicy removes a policy rule from the storage.
 func (a *adapter) RemovePolicy(sec string, ptype string, rule []string) error {
 	line := savePolicyLine(ptype, rule)
-	if err := a.collection.Remove(line); err != nil {
+
+	session := a.session.Copy()
+	defer session.Close()
+
+	if err := a.collection.With(session).Remove(line); err != nil {
 		switch err {
 		case mgo.ErrNotFound:
 			return nil
@@ -310,6 +328,9 @@ func (a *adapter) RemoveFilteredPolicy(sec string, ptype string, fieldIndex int,
 		}
 	}
 
-	_, err := a.collection.RemoveAll(selector)
+	session := a.session.Copy()
+	defer session.Close()
+
+	_, err := a.collection.With(session).RemoveAll(selector)
 	return err
 }
