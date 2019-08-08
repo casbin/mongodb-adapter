@@ -5,7 +5,7 @@ MongoDB Adapter is the [Mongo DB](https://www.mongodb.com) adapter for [Casbin](
 
 ## Installation
 
-    go get github.com/casbin/mongodb-adapter
+    go get -u github.com/casbin/mongodb-adapter/v2
 
 ## Simple Example
 
@@ -13,8 +13,8 @@ MongoDB Adapter is the [Mongo DB](https://www.mongodb.com) adapter for [Casbin](
 package main
 
 import (
-	"github.com/casbin/casbin"
-	"github.com/casbin/mongodb-adapter"
+	"github.com/casbin/casbin/v2"
+	"github.com/casbin/mongodb-adapter/v2"
 )
 
 func main() {
@@ -27,9 +27,12 @@ func main() {
 	// The adapter will use the table named "casbin_rule".
 	// If it doesn't exist, the adapter will create it automatically.
 	// a := mongodbadapter.NewAdapter("127.0.0.1:27017/abc")
-	
-	e := casbin.NewEnforcer("examples/rbac_model.conf", a)
-	
+
+	e, err := casbin.NewEnforcer("examples/rbac_model.conf", a)
+	if err != nil {
+		panic(err)
+	}
+
 	// Load the policy from DB.
 	e.LoadPolicy()
 	
