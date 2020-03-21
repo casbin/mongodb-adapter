@@ -18,7 +18,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"net/url"
+	neturl "net/url"
 	"runtime"
 	"strings"
 	"time"
@@ -60,13 +60,13 @@ func finalizer(a *adapter) {
 
 // NewAdapter is the constructor for Adapter. If database name is not provided
 // in the Mongo URL, 'casbin' will be used as database name.
-func NewAdapter(uri string, timeout ...interface{}) (persist.Adapter, error) {
-	if !strings.HasPrefix(uri, "mongodb+srv://") && !strings.HasPrefix(uri, "mongodb://") {
-		uri = fmt.Sprint("mongodb://" + uri)
+func NewAdapter(url string, timeout ...interface{}) (persist.Adapter, error) {
+	if !strings.HasPrefix(url, "mongodb+srv://") && !strings.HasPrefix(url, "mongodb://") {
+		url = fmt.Sprint("mongodb://" + url)
 	}
-	clientOption := options.Client().ApplyURI(uri)
+	clientOption := options.Client().ApplyURI(url)
 
-	u, err := url.Parse(uri)
+	u, err := neturl.Parse(url)
 	if err != nil {
 		return nil, err
 	}
