@@ -1,9 +1,8 @@
-module github.com/casbin/mongodb-adapter/v2
+module github.com/dovics/mongodb-adapter
 
-go 1.12
+go 1.13
 
 require (
-	github.com/casbin/casbin/v2 v2.0.0
-	github.com/globalsign/mgo v0.0.0-20181015135952-eeefdecb41b8
+	github.com/casbin/casbin/v2 v2.2.1
 	go.mongodb.org/mongo-driver v1.3.1
 )
