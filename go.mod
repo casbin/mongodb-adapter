@@ -1,4 +1,4 @@
-module github.com/dovics/mongodb-adapter
+module github.com/casbin/mongodb-adapter/v2
 
 go 1.13
 

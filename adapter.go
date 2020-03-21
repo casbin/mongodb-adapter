@@ -59,7 +59,7 @@ func finalizer(a *adapter) {
 
 // NewAdapter is the constructor for Adapter. If database name is not provided
 // in the Mongo URL, 'casbin' will be used as database name.
-func NewAdapter(url string, timeout ...interface{}) persist.Adapter {
+func NewAdapter(url string, timeout ...interface{}) (persist.Adapter, error) {
 	if !strings.HasPrefix(url, "mongodb+srv://") && !strings.HasPrefix(url, "mongodb://") {
 		url = fmt.Sprint("mongodb://" + url)
 	}
@@ -70,7 +70,7 @@ func NewAdapter(url string, timeout ...interface{}) persist.Adapter {
 
 // NewAdapterWithClientOption is an alternative constructor for Adapter
 // that does the same as NewAdapter, but uses mongo.ClientOption instead of a Mongo URL
-func NewAdapterWithClientOption(clientOption *options.ClientOptions, timeout ...interface{}) persist.Adapter {
+func NewAdapterWithClientOption(clientOption *options.ClientOptions, timeout ...interface{}) (persist.Adapter, error) {
 	a := &adapter{
 		clientOption: clientOption,
 	}
@@ -79,36 +79,42 @@ func NewAdapterWithClientOption(clientOption *options.ClientOptions, timeout ...
 	if len(timeout) == 1 {
 		a.timeout = timeout[0].(time.Duration)
 	} else if len(timeout) > 1 {
-		panic(errors.New("too many arguments"))
+		return nil, errors.New("too many arguments")
 	} else {
 		a.timeout = defaultTimeout
 	}
 
 	// Open the DB, create it if not existed.
-	a.open()
+	err := a.open()
+	if err != nil {
+		return nil, err
+	}
 
 	// Call the destructor when the object is released.
 	runtime.SetFinalizer(a, finalizer)
 
-	return a
+	return a, nil
 }
 
 // NewFilteredAdapter is the constructor for FilteredAdapter.
 // Casbin will not automatically call LoadPolicy() for a filtered adapter.
-func NewFilteredAdapter(url string) persist.FilteredAdapter {
-	a := NewAdapter(url).(*adapter)
-	a.filtered = true
+func NewFilteredAdapter(url string) (persist.FilteredAdapter, error) {
+	a, err := NewAdapter(url)
+	if err != nil {
+		return nil, err
+	}
+	a.(*adapter).filtered = true
 
-	return a
+	return a.(*adapter), nil
 }
 
-func (a *adapter) open() {
+func (a *adapter) open() error {
 	ctx, cancle := context.WithTimeout(context.TODO(), a.timeout)
 	defer cancle()
 
 	client, err := mongo.Connect(ctx, a.clientOption)
 	if err != nil {
-		panic(err)
+		return err
 	}
 
 	db := client.Database("casbin")
@@ -130,9 +136,10 @@ func (a *adapter) open() {
 			Keys: keysDoc,
 		},
 	); err != nil {
-		panic(err)
+		return err
 	}
 
+	return nil
 }
 
 func (a *adapter) close() {
