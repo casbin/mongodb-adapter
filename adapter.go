@@ -18,6 +18,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"net/url"
 	"runtime"
 	"strings"
 	"time"
@@ -59,18 +60,30 @@ func finalizer(a *adapter) {
 
 // NewAdapter is the constructor for Adapter. If database name is not provided
 // in the Mongo URL, 'casbin' will be used as database name.
-func NewAdapter(url string, timeout ...interface{}) (persist.Adapter, error) {
-	if !strings.HasPrefix(url, "mongodb+srv://") && !strings.HasPrefix(url, "mongodb://") {
-		url = fmt.Sprint("mongodb://" + url)
+func NewAdapter(uri string, timeout ...interface{}) (persist.Adapter, error) {
+	if !strings.HasPrefix(uri, "mongodb+srv://") && !strings.HasPrefix(uri, "mongodb://") {
+		uri = fmt.Sprint("mongodb://" + uri)
 	}
-	clientOption := options.Client().ApplyURI(url)
+	clientOption := options.Client().ApplyURI(uri)
 
-	return NewAdapterWithClientOption(clientOption, timeout...)
+	u, err := url.Parse(uri)
+	if err != nil {
+		return nil, err
+	}
+
+	var databaseName string
+	if u.Path != "" {
+		databaseName = u.Path[1:]
+	} else {
+		databaseName = "casbin_rule"
+	}
+
+	return NewAdapterWithClientOption(clientOption, databaseName, timeout...)
 }
 
 // NewAdapterWithClientOption is an alternative constructor for Adapter
 // that does the same as NewAdapter, but uses mongo.ClientOption instead of a Mongo URL
-func NewAdapterWithClientOption(clientOption *options.ClientOptions, timeout ...interface{}) (persist.Adapter, error) {
+func NewAdapterWithClientOption(clientOption *options.ClientOptions, databaseName string, timeout ...interface{}) (persist.Adapter, error) {
 	a := &adapter{
 		clientOption: clientOption,
 	}
@@ -85,7 +98,7 @@ func NewAdapterWithClientOption(clientOption *options.ClientOptions, timeout ...
 	}
 
 	// Open the DB, create it if not existed.
-	err := a.open()
+	err := a.open(databaseName)
 	if err != nil {
 		return nil, err
 	}
@@ -108,7 +121,7 @@ func NewFilteredAdapter(url string) (persist.FilteredAdapter, error) {
 	return a.(*adapter), nil
 }
 
-func (a *adapter) open() error {
+func (a *adapter) open(databaseName string) error {
 	ctx, cancle := context.WithTimeout(context.TODO(), a.timeout)
 	defer cancle()
 
@@ -117,7 +130,7 @@ func (a *adapter) open() error {
 		return err
 	}
 
-	db := client.Database("casbin")
+	db := client.Database(databaseName)
 	collection := db.Collection("casbin_rule")
 
 	a.client = client

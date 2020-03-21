@@ -15,6 +15,7 @@
 package mongodbadapter
 
 import (
+	"fmt"
 	"os"
 	"testing"
 
@@ -258,6 +259,13 @@ func TestNewAdapterWithUnknownURL(t *testing.T) {
 	}()
 
 	_, err := NewAdapter("fakeserver:27017")
+	if err != nil {
+		panic(err)
+	}
+}
+
+func TestNewAdapterWithDatabase(t *testing.T) {
+	_, err := NewAdapter(fmt.Sprint(getDbURL() + "/abc"))
 	if err != nil {
 		panic(err)
 	}
