@@ -15,13 +15,22 @@
 package mongodbadapter
 
 import (
+	"context"
 	"errors"
+	"fmt"
 	"runtime"
+	"strings"
+	"time"
 
 	"github.com/casbin/casbin/v2/model"
 	"github.com/casbin/casbin/v2/persist"
-	"github.com/globalsign/mgo"
+	"go.mongodb.org/mongo-driver/bson"
+	"go.mongodb.org/mongo-driver/mongo"
+	"go.mongodb.org/mongo-driver/mongo/options"
+	"go.mongodb.org/mongo-driver/x/bsonx"
 )
+
+const defaultTimeout time.Duration = 30 * time.Second
 
 // CasbinRule represents a rule in Casbin.
 type CasbinRule struct {
@@ -36,10 +45,11 @@ type CasbinRule struct {
 
 // adapter represents the MongoDB adapter for policy storage.
 type adapter struct {
-	dialInfo   *mgo.DialInfo
-	session    *mgo.Session
-	collection *mgo.Collection
-	filtered   bool
+	clientOption *options.ClientOptions
+	client       *mongo.Client
+	collection   *mongo.Collection
+	timeout      time.Duration
+	filtered     bool
 }
 
 // finalizer is the destructor for adapter.
@@ -49,20 +59,30 @@ func finalizer(a *adapter) {
 
 // NewAdapter is the constructor for Adapter. If database name is not provided
 // in the Mongo URL, 'casbin' will be used as database name.
-func NewAdapter(url string) persist.Adapter {
-	dI, err := mgo.ParseURL(url)
-	if err != nil {
-		panic(err)
+func NewAdapter(url string, timeout ...interface{}) persist.Adapter {
+	if !strings.HasPrefix(url, "mongodb+srv://") && !strings.HasPrefix(url, "mongodb://") {
+		url = fmt.Sprint("mongodb://" + url)
 	}
+	clientOption := options.Client().ApplyURI(url)
 
-	return NewAdapterWithDialInfo(dI)
+	return NewAdapterWithClientOption(clientOption, timeout...)
 }
 
-// NewAdapterWithDialInfo is an alternative constructor for Adapter
-// that does the same as NewAdapter, but uses mgo.DialInfo instead of a Mongo URL
-func NewAdapterWithDialInfo(dI *mgo.DialInfo) persist.Adapter {
-	a := &adapter{dialInfo: dI}
+// NewAdapterWithClientOption is an alternative constructor for Adapter
+// that does the same as NewAdapter, but uses mongo.ClientOption instead of a Mongo URL
+func NewAdapterWithClientOption(clientOption *options.ClientOptions, timeout ...interface{}) persist.Adapter {
+	a := &adapter{
+		clientOption: clientOption,
+	}
 	a.filtered = false
+
+	if len(timeout) == 1 {
+		a.timeout = timeout[0].(time.Duration)
+	} else if len(timeout) > 1 {
+		panic(errors.New("too many arguments"))
+	} else {
+		a.timeout = defaultTimeout
+	}
 
 	// Open the DB, create it if not existed.
 	a.open()
@@ -83,49 +103,51 @@ func NewFilteredAdapter(url string) persist.FilteredAdapter {
 }
 
 func (a *adapter) open() {
-	// FailFast will cause connection and query attempts to fail faster when
-	// the server is unavailable, instead of retrying until the configured
-	// timeout period. Note that an unavailable server may silently drop
-	// packets instead of rejecting them, in which case it's impossible to
-	// distinguish it from a slow server, so the timeout stays relevant.
-	a.dialInfo.FailFast = true
+	ctx, cancle := context.WithTimeout(context.TODO(), a.timeout)
+	defer cancle()
 
-	if a.dialInfo.Database == "" {
-		a.dialInfo.Database = "casbin"
-	}
-
-	session, err := mgo.DialWithInfo(a.dialInfo)
+	client, err := mongo.Connect(ctx, a.clientOption)
 	if err != nil {
 		panic(err)
 	}
 
-	db := session.DB(a.dialInfo.Database)
-	collection := db.C("casbin_rule")
+	db := client.Database("casbin")
+	collection := db.Collection("casbin_rule")
 
-	a.session = session
+	a.client = client
 	a.collection = collection
 
 	indexes := []string{"ptype", "v0", "v1", "v2", "v3", "v4", "v5"}
+	keysDoc := bsonx.Doc{}
+
 	for _, k := range indexes {
-		if err := a.collection.EnsureIndexKey(k); err != nil {
-			panic(err)
-		}
+		keysDoc = keysDoc.Append(k, bsonx.Int32(1))
 	}
+
+	if _, err = collection.Indexes().CreateOne(
+		context.Background(),
+		mongo.IndexModel{
+			Keys: keysDoc,
+		},
+	); err != nil {
+		panic(err)
+	}
+
 }
 
 func (a *adapter) close() {
-	a.session.Close()
+	ctx, cancle := context.WithTimeout(context.TODO(), a.timeout)
+	defer cancle()
+	a.client.Disconnect(ctx)
 }
 
 func (a *adapter) dropTable() error {
-	session := a.session.Copy()
-	defer session.Close()
+	ctx, cancle := context.WithTimeout(context.TODO(), a.timeout)
+	defer cancle()
 
-	err := a.collection.With(session).DropCollection()
+	err := a.collection.Drop(ctx)
 	if err != nil {
-		if err.Error() != "ns not found" {
-			return err
-		}
+		return err
 	}
 	return nil
 }
@@ -185,20 +207,29 @@ func (a *adapter) LoadPolicy(model model.Model) error {
 func (a *adapter) LoadFilteredPolicy(model model.Model, filter interface{}) error {
 	if filter == nil {
 		a.filtered = false
+		filter = bson.D{{}}
 	} else {
 		a.filtered = true
 	}
 	line := CasbinRule{}
 
-	session := a.session.Copy()
-	defer session.Close()
+	ctx, cancle := context.WithTimeout(context.TODO(), a.timeout)
+	defer cancle()
 
-	iter := a.collection.With(session).Find(filter).Iter()
-	for iter.Next(&line) {
+	cursor, err := a.collection.Find(ctx, filter)
+	if err != nil {
+		return err
+	}
+
+	for cursor.Next(ctx) {
+		err := cursor.Decode(&line)
+		if err != nil {
+			return err
+		}
 		loadPolicyLine(line, model)
 	}
 
-	return iter.Close()
+	return cursor.Close(ctx)
 }
 
 // IsFiltered returns true if the loaded policy has been filtered.
@@ -257,38 +288,41 @@ func (a *adapter) SavePolicy(model model.Model) error {
 			lines = append(lines, &line)
 		}
 	}
+	ctx, cancle := context.WithTimeout(context.TODO(), a.timeout)
+	defer cancle()
 
-	session := a.session.Copy()
-	defer session.Close()
+	if _, err := a.collection.InsertMany(ctx, lines); err != nil {
+		return err
+	}
 
-	return a.collection.With(session).Insert(lines...)
+	return nil
 }
 
 // AddPolicy adds a policy rule to the storage.
 func (a *adapter) AddPolicy(sec string, ptype string, rule []string) error {
 	line := savePolicyLine(ptype, rule)
 
-	session := a.session.Copy()
-	defer session.Close()
+	ctx, cancle := context.WithTimeout(context.TODO(), a.timeout)
+	defer cancle()
 
-	return a.collection.With(session).Insert(line)
+	if _, err := a.collection.InsertOne(ctx, line); err != nil {
+		return err
+	}
+
+	return nil
 }
 
 // RemovePolicy removes a policy rule from the storage.
 func (a *adapter) RemovePolicy(sec string, ptype string, rule []string) error {
 	line := savePolicyLine(ptype, rule)
 
-	session := a.session.Copy()
-	defer session.Close()
+	ctx, cancle := context.WithTimeout(context.TODO(), a.timeout)
+	defer cancle()
 
-	if err := a.collection.With(session).Remove(line); err != nil {
-		switch err {
-		case mgo.ErrNotFound:
-			return nil
-		default:
-			return err
-		}
+	if _, err := a.collection.DeleteOne(ctx, line); err != nil {
+		return err
 	}
+
 	return nil
 }
 
@@ -328,9 +362,12 @@ func (a *adapter) RemoveFilteredPolicy(sec string, ptype string, fieldIndex int,
 		}
 	}
 
-	session := a.session.Copy()
-	defer session.Close()
+	ctx, cancle := context.WithTimeout(context.TODO(), a.timeout)
+	defer cancle()
 
-	_, err := a.collection.With(session).RemoveAll(selector)
-	return err
+	if _, err := a.collection.DeleteMany(ctx, selector); err != nil {
+		return err
+	}
+
+	return nil
 }
