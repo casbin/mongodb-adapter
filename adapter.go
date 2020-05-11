@@ -122,8 +122,8 @@ func NewFilteredAdapter(url string) (persist.FilteredAdapter, error) {
 }
 
 func (a *adapter) open(databaseName string) error {
-	ctx, cancle := context.WithTimeout(context.TODO(), a.timeout)
-	defer cancle()
+	ctx, cancel := context.WithTimeout(context.TODO(), a.timeout)
+	defer cancel()
 
 	client, err := mongo.Connect(ctx, a.clientOption)
 	if err != nil {
@@ -156,14 +156,14 @@ func (a *adapter) open(databaseName string) error {
 }
 
 func (a *adapter) close() {
-	ctx, cancle := context.WithTimeout(context.TODO(), a.timeout)
-	defer cancle()
+	ctx, cancel := context.WithTimeout(context.TODO(), a.timeout)
+	defer cancel()
 	a.client.Disconnect(ctx)
 }
 
 func (a *adapter) dropTable() error {
-	ctx, cancle := context.WithTimeout(context.TODO(), a.timeout)
-	defer cancle()
+	ctx, cancel := context.WithTimeout(context.TODO(), a.timeout)
+	defer cancel()
 
 	err := a.collection.Drop(ctx)
 	if err != nil {
@@ -233,8 +233,8 @@ func (a *adapter) LoadFilteredPolicy(model model.Model, filter interface{}) erro
 	}
 	line := CasbinRule{}
 
-	ctx, cancle := context.WithTimeout(context.TODO(), a.timeout)
-	defer cancle()
+	ctx, cancel := context.WithTimeout(context.TODO(), a.timeout)
+	defer cancel()
 
 	cursor, err := a.collection.Find(ctx, filter)
 	if err != nil {
@@ -308,8 +308,8 @@ func (a *adapter) SavePolicy(model model.Model) error {
 			lines = append(lines, &line)
 		}
 	}
-	ctx, cancle := context.WithTimeout(context.TODO(), a.timeout)
-	defer cancle()
+	ctx, cancel := context.WithTimeout(context.TODO(), a.timeout)
+	defer cancel()
 
 	if _, err := a.collection.InsertMany(ctx, lines); err != nil {
 		return err
@@ -322,8 +322,8 @@ func (a *adapter) SavePolicy(model model.Model) error {
 func (a *adapter) AddPolicy(sec string, ptype string, rule []string) error {
 	line := savePolicyLine(ptype, rule)
 
-	ctx, cancle := context.WithTimeout(context.TODO(), a.timeout)
-	defer cancle()
+	ctx, cancel := context.WithTimeout(context.TODO(), a.timeout)
+	defer cancel()
 
 	if _, err := a.collection.InsertOne(ctx, line); err != nil {
 		return err
@@ -336,8 +336,8 @@ func (a *adapter) AddPolicy(sec string, ptype string, rule []string) error {
 func (a *adapter) RemovePolicy(sec string, ptype string, rule []string) error {
 	line := savePolicyLine(ptype, rule)
 
-	ctx, cancle := context.WithTimeout(context.TODO(), a.timeout)
-	defer cancle()
+	ctx, cancel := context.WithTimeout(context.TODO(), a.timeout)
+	defer cancel()
 
 	if _, err := a.collection.DeleteOne(ctx, line); err != nil {
 		return err
@@ -382,8 +382,8 @@ func (a *adapter) RemoveFilteredPolicy(sec string, ptype string, fieldIndex int,
 		}
 	}
 
-	ctx, cancle := context.WithTimeout(context.TODO(), a.timeout)
-	defer cancle()
+	ctx, cancel := context.WithTimeout(context.TODO(), a.timeout)
+	defer cancel()
 
 	if _, err := a.collection.DeleteMany(ctx, selector); err != nil {
 		return err
