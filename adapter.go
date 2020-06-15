@@ -173,48 +173,24 @@ func (a *adapter) dropTable() error {
 }
 
 func loadPolicyLine(line CasbinRule, model model.Model) {
-	key := line.PType
-	sec := key[:1]
-
-	tokens := []string{}
-	if line.V0 != "" {
-		tokens = append(tokens, line.V0)
-	} else {
-		goto LineEnd
-	}
-
-	if line.V1 != "" {
-		tokens = append(tokens, line.V1)
-	} else {
-		goto LineEnd
-	}
-
-	if line.V2 != "" {
-		tokens = append(tokens, line.V2)
-	} else {
-		goto LineEnd
-	}
-
-	if line.V3 != "" {
-		tokens = append(tokens, line.V3)
-	} else {
-		goto LineEnd
-	}
-
-	if line.V4 != "" {
-		tokens = append(tokens, line.V4)
-	} else {
-		goto LineEnd
-	}
-
+	var p = []string{line.PType,
+		line.V0, line.V1, line.V2, line.V3, line.V4, line.V5}
+	var lineText string
 	if line.V5 != "" {
-		tokens = append(tokens, line.V5)
-	} else {
-		goto LineEnd
+		lineText = strings.Join(p, ", ")
+	} else if line.V4 != "" {
+		lineText = strings.Join(p[:6], ", ")
+	} else if line.V3 != "" {
+		lineText = strings.Join(p[:5], ", ")
+	} else if line.V2 != "" {
+		lineText = strings.Join(p[:4], ", ")
+	} else if line.V1 != "" {
+		lineText = strings.Join(p[:3], ", ")
+	} else if line.V0 != "" {
+		lineText = strings.Join(p[:2], ", ")
 	}
 
-LineEnd:
-	model[sec][key].Policy = append(model[sec][key].Policy, tokens)
+	persist.LoadPolicyLine(lineText, model)
 }
 
 // LoadPolicy loads policy from database.
