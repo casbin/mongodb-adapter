@@ -146,7 +146,8 @@ func (a *adapter) open(databaseName string) error {
 	if _, err = collection.Indexes().CreateOne(
 		context.Background(),
 		mongo.IndexModel{
-			Keys: keysDoc,
+			Keys:    keysDoc,
+			Options: options.Index().SetUnique(true),
 		},
 	); err != nil {
 		return err
