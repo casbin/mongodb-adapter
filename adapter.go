@@ -60,7 +60,7 @@ func finalizer(a *adapter) {
 
 // NewAdapter is the constructor for Adapter. If database name is not provided
 // in the Mongo URL, 'casbin' will be used as database name.
-func NewAdapter(url string, timeout ...interface{}) (persist.Adapter, error) {
+func NewAdapter(url string, timeout ...interface{}) (persist.BatchAdapter, error) {
 	if !strings.HasPrefix(url, "mongodb+srv://") && !strings.HasPrefix(url, "mongodb://") {
 		url = fmt.Sprint("mongodb://" + url)
 	}
@@ -83,7 +83,7 @@ func NewAdapter(url string, timeout ...interface{}) (persist.Adapter, error) {
 
 // NewAdapterWithClientOption is an alternative constructor for Adapter
 // that does the same as NewAdapter, but uses mongo.ClientOption instead of a Mongo URL
-func NewAdapterWithClientOption(clientOption *options.ClientOptions, databaseName string, timeout ...interface{}) (persist.Adapter, error) {
+func NewAdapterWithClientOption(clientOption *options.ClientOptions, databaseName string, timeout ...interface{}) (persist.BatchAdapter, error) {
 	a := &adapter{
 		clientOption: clientOption,
 	}
@@ -304,6 +304,44 @@ func (a *adapter) AddPolicy(sec string, ptype string, rule []string) error {
 
 	if _, err := a.collection.InsertOne(ctx, line); err != nil {
 		return err
+	}
+
+	return nil
+}
+
+// AddPolicies adds policy rules to the storage.
+func (a *adapter) AddPolicies(sec string, ptype string, rules [][]string) error {
+	var lines []CasbinRule
+	for _,rule := range rules{
+		line := savePolicyLine(ptype, rule)
+		lines = append(lines, line)
+	}
+
+	for _,line := range lines{
+		ctx, cancel := context.WithTimeout(context.TODO(), a.timeout)
+		defer cancel()
+		if _, err := a.collection.InsertOne(ctx, line); err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+// RemovePolicies removes policy rules from the storage.
+func (a *adapter) RemovePolicies(sec string, ptype string, rules [][]string) error {
+	var lines []CasbinRule
+	for _,rule := range rules{
+		line := savePolicyLine(ptype, rule)
+		lines = append(lines, line)
+	}
+
+	for _,line := range lines{
+		ctx, cancel := context.WithTimeout(context.TODO(), a.timeout)
+		defer cancel()
+		if _, err := a.collection.DeleteOne(ctx, line); err != nil {
+			return err
+		}
 	}
 
 	return nil
