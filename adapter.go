@@ -18,7 +18,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	neturl "net/url"
 	"runtime"
 	"strings"
 	"time"
@@ -29,6 +28,7 @@ import (
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
 	"go.mongodb.org/mongo-driver/x/bsonx"
+	"go.mongodb.org/mongo-driver/x/mongo/driver/connstring"
 )
 
 const defaultTimeout time.Duration = 30 * time.Second
@@ -64,16 +64,21 @@ func NewAdapter(url string, timeout ...interface{}) (persist.BatchAdapter, error
 	if !strings.HasPrefix(url, "mongodb+srv://") && !strings.HasPrefix(url, "mongodb://") {
 		url = fmt.Sprint("mongodb://" + url)
 	}
-	clientOption := options.Client().ApplyURI(url)
 
-	u, err := neturl.Parse(url)
+	// Parse and validate url before apply it.
+	connString, err := connstring.ParseAndValidate(url)
+
 	if err != nil {
 		return nil, err
 	}
 
+	clientOption := options.Client().ApplyURI(url)
+
 	var databaseName string
-	if u.Path != "" {
-		databaseName = u.Path[1:]
+
+	// Get database name from connString.
+	if connString.Database != "" {
+		databaseName = connString.Database
 	} else {
 		databaseName = "casbin_rule"
 	}
@@ -312,12 +317,12 @@ func (a *adapter) AddPolicy(sec string, ptype string, rule []string) error {
 // AddPolicies adds policy rules to the storage.
 func (a *adapter) AddPolicies(sec string, ptype string, rules [][]string) error {
 	var lines []CasbinRule
-	for _,rule := range rules{
+	for _, rule := range rules {
 		line := savePolicyLine(ptype, rule)
 		lines = append(lines, line)
 	}
 
-	for _,line := range lines{
+	for _, line := range lines {
 		ctx, cancel := context.WithTimeout(context.TODO(), a.timeout)
 		defer cancel()
 		if _, err := a.collection.InsertOne(ctx, line); err != nil {
@@ -331,12 +336,12 @@ func (a *adapter) AddPolicies(sec string, ptype string, rules [][]string) error 
 // RemovePolicies removes policy rules from the storage.
 func (a *adapter) RemovePolicies(sec string, ptype string, rules [][]string) error {
 	var lines []CasbinRule
-	for _,rule := range rules{
+	for _, rule := range rules {
 		line := savePolicyLine(ptype, rule)
 		lines = append(lines, line)
 	}
 
-	for _,line := range lines{
+	for _, line := range lines {
 		ctx, cancel := context.WithTimeout(context.TODO(), a.timeout)
 		defer cancel()
 		if _, err := a.collection.DeleteOne(ctx, line); err != nil {
