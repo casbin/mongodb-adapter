@@ -75,7 +75,6 @@ func NewAdapter(url string, timeout ...interface{}) (persist.BatchAdapter, error
 	clientOption := options.Client().ApplyURI(url)
 
 	var databaseName string
-
 	// Get database name from connString.
 	if connString.Database != "" {
 		databaseName = connString.Database
