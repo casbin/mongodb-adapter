@@ -49,6 +49,49 @@ func main() {
 	e.SavePolicy()
 }
 ```
+## Advanced Example
+
+```go
+package main
+
+import (
+	"github.com/casbin/casbin/v2"
+	"github.com/casbin/mongodb-adapter/v3"
+	mongooptions "go.mongodb.org/mongo-driver/mongo/options"
+)
+
+func main() {
+	// Initialize a MongoDB adapter with NewAdapterWithClientOption:
+	// The adapter will use custom mongo client options.
+	// custom database name.
+	// default collection name 'casbin_rule'.
+	mongoClientOption := mongooptions.Client().ApplyURI("mongodb://127.0.0.1:27017")
+	databaseName := "casbin"
+	a,err := mongodbadapter.NewAdapterWithClientOption(mongoClientOption, databaseName)
+	// Or you can use NewAdapterWithCollectionName for custom collection name.
+	if err != nil {
+		panic(err)
+	}
+
+	e, err := casbin.NewEnforcer("examples/rbac_model.conf", a)
+	if err != nil {
+		panic(err)
+	}
+
+	// Load the policy from DB.
+	e.LoadPolicy()
+	
+	// Check the permission.
+	e.Enforce("alice", "data1", "read")
+	
+	// Modify the policy.
+	// e.AddPolicy(...)
+	// e.RemovePolicy(...)
+	
+	// Save the policy back to DB.
+	e.SavePolicy()
+}
+```
 
 ## Filtered Policies
 
