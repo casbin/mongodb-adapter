@@ -32,6 +32,8 @@ import (
 )
 
 const defaultTimeout time.Duration = 30 * time.Second
+const defaultDatabaseName string = "casbin"
+const defaultCollectionName string = "casbin_rule"
 
 // CasbinRule represents a rule in Casbin.
 type CasbinRule struct {
@@ -60,6 +62,7 @@ func finalizer(a *adapter) {
 
 // NewAdapter is the constructor for Adapter. If database name is not provided
 // in the Mongo URL, 'casbin' will be used as database name.
+// 'casbin_rule' will be used as a collection name.
 func NewAdapter(url string, timeout ...interface{}) (persist.BatchAdapter, error) {
 	if !strings.HasPrefix(url, "mongodb+srv://") && !strings.HasPrefix(url, "mongodb://") {
 		url = fmt.Sprint("mongodb://" + url)
@@ -79,15 +82,26 @@ func NewAdapter(url string, timeout ...interface{}) (persist.BatchAdapter, error
 	if connString.Database != "" {
 		databaseName = connString.Database
 	} else {
-		databaseName = "casbin_rule"
+		databaseName = defaultDatabaseName
 	}
 
-	return NewAdapterWithClientOption(clientOption, databaseName, timeout...)
+	return baseNewAdapter(clientOption, databaseName, defaultCollectionName, timeout...)
 }
 
 // NewAdapterWithClientOption is an alternative constructor for Adapter
-// that does the same as NewAdapter, but uses mongo.ClientOption instead of a Mongo URL
+// that does the same as NewAdapter, but uses mongo.ClientOption instead of a Mongo URL + a databaseName option
 func NewAdapterWithClientOption(clientOption *options.ClientOptions, databaseName string, timeout ...interface{}) (persist.BatchAdapter, error) {
+	return baseNewAdapter(clientOption, databaseName, defaultCollectionName, timeout...)
+}
+
+// NewAdapterWithCollectionName is an alternative constructor for Adapter
+// that does the same as NewAdapterWithClientOption, but with an extra collectionName option
+func NewAdapterWithCollectionName(clientOption *options.ClientOptions, databaseName string, collectionName string, timeout ...interface{}) (persist.BatchAdapter, error) {
+	return baseNewAdapter(clientOption, databaseName, collectionName, timeout...)
+}
+
+// baseNewAdapter is a base constructor for Adapter
+func baseNewAdapter(clientOption *options.ClientOptions, databaseName string, collectionName string, timeout ...interface{}) (persist.BatchAdapter, error) {
 	a := &adapter{
 		clientOption: clientOption,
 	}
@@ -102,7 +116,7 @@ func NewAdapterWithClientOption(clientOption *options.ClientOptions, databaseNam
 	}
 
 	// Open the DB, create it if not existed.
-	err := a.open(databaseName)
+	err := a.open(databaseName, collectionName)
 	if err != nil {
 		return nil, err
 	}
@@ -125,7 +139,7 @@ func NewFilteredAdapter(url string) (persist.FilteredAdapter, error) {
 	return a.(*adapter), nil
 }
 
-func (a *adapter) open(databaseName string) error {
+func (a *adapter) open(databaseName string, collectionName string) error {
 	ctx, cancel := context.WithTimeout(context.TODO(), a.timeout)
 	defer cancel()
 
@@ -135,7 +149,7 @@ func (a *adapter) open(databaseName string) error {
 	}
 
 	db := client.Database(databaseName)
-	collection := db.Collection("casbin_rule")
+	collection := db.Collection(collectionName)
 
 	a.client = client
 	a.collection = collection

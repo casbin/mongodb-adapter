@@ -17,11 +17,13 @@ package mongodbadapter
 import (
 	"fmt"
 	"os"
+	"strings"
 	"testing"
 
 	"github.com/casbin/casbin/v2"
 	"github.com/casbin/casbin/v2/util"
 	"go.mongodb.org/mongo-driver/bson"
+	mongooptions "go.mongodb.org/mongo-driver/mongo/options"
 )
 
 var testDbURL = os.Getenv("TEST_MONGODB_URL")
@@ -104,7 +106,7 @@ func TestAdapter(t *testing.T) {
 		{"bob", "data2", "write"},
 		{"data2_admin", "data2", "read"},
 		{"data2_admin", "data2", "write"},
-		},
+	},
 	)
 	// AutoSave is enabled by default.
 	// Now we disable it.
@@ -122,7 +124,7 @@ func TestAdapter(t *testing.T) {
 		{"bob", "data2", "write"},
 		{"data2_admin", "data2", "read"},
 		{"data2_admin", "data2", "write"},
-		},
+	},
 	)
 
 	// Now we enable the AutoSave.
@@ -142,8 +144,8 @@ func TestAdapter(t *testing.T) {
 		{"data2_admin", "data2", "read"},
 		{"data2_admin", "data2", "write"},
 		{"alice", "data1", "write"},
-		},
-	)	
+	},
+	)
 
 	// Remove the added rule.
 	e.RemovePolicy("alice", "data1", "write")
@@ -158,7 +160,7 @@ func TestAdapter(t *testing.T) {
 		{"bob", "data2", "write"},
 		{"data2_admin", "data2", "read"},
 		{"data2_admin", "data2", "write"},
-		},
+	},
 	)
 
 	// Remove "data2_admin" related policy rules via a filter.
@@ -170,7 +172,7 @@ func TestAdapter(t *testing.T) {
 	testGetPolicy(t, e, [][]string{
 		{"alice", "data1", "read"},
 		{"bob", "data2", "write"},
-		},
+	},
 	)
 
 	e.RemoveFilteredPolicy(1, "data1")
@@ -204,15 +206,15 @@ func TestAddPolicies(t *testing.T) {
 		{"bob", "data2", "write"},
 		{"data2_admin", "data2", "read"},
 		{"data2_admin", "data2", "write"},
-		},
+	},
 	)
-	a.AddPolicies("p","p",[][]string{
+	a.AddPolicies("p", "p", [][]string{
 		{"bob", "data2", "read"},
 		{"alice", "data2", "write"},
 		{"alice", "data2", "read"},
 		{"bob", "data1", "write"},
 		{"bob", "data1", "read"},
-		},
+	},
 	)
 
 	if err := e.LoadPolicy(); err != nil {
@@ -222,14 +224,14 @@ func TestAddPolicies(t *testing.T) {
 	testGetPolicy(t, e, [][]string{
 		{"alice", "data1", "read"},
 		{"bob", "data2", "write"},
-		{"data2_admin", "data2", "read"}, 
+		{"data2_admin", "data2", "read"},
 		{"data2_admin", "data2", "write"},
 		{"bob", "data2", "read"},
 		{"alice", "data2", "write"},
 		{"alice", "data2", "read"},
 		{"bob", "data1", "write"},
 		{"bob", "data1", "read"},
-		},
+	},
 	)
 
 	// Remove the added rule.
@@ -248,10 +250,10 @@ func TestAddPolicies(t *testing.T) {
 	testGetPolicy(t, e, [][]string{
 		{"alice", "data1", "read"},
 		{"bob", "data2", "write"},
-		{"data2_admin", "data2", "read"}, 
+		{"data2_admin", "data2", "read"},
 		{"data2_admin", "data2", "write"},
-		},
-		)
+	},
+	)
 }
 
 func TestDeleteFilteredAdapter(t *testing.T) {
@@ -322,7 +324,7 @@ func TestFilteredAdapter(t *testing.T) {
 	if err != nil {
 		panic(err)
 	}
-	
+
 	// Load filtered policies from the database.
 	e.AddPolicy("alice", "data1", "write")
 	e.AddPolicy("bob", "data2", "write")
@@ -343,7 +345,7 @@ func TestFilteredAdapter(t *testing.T) {
 	testGetPolicy(t, e, [][]string{
 		{"alice", "data1", "read"},
 		{"alice", "data1", "write"},
-		},
+	},
 	)
 
 	// Test safe handling of SavePolicy when using filtered policies.
@@ -396,6 +398,33 @@ func TestNewAdapterWithUnknownURL(t *testing.T) {
 
 func TestNewAdapterWithDatabase(t *testing.T) {
 	_, err := NewAdapter(fmt.Sprint(getDbURL() + "/abc"))
+	if err != nil {
+		panic(err)
+	}
+}
+
+func TestNewAdapterWithClientOption(t *testing.T) {
+	uri := getDbURL()
+	if !strings.HasPrefix(uri, "mongodb+srv://") && !strings.HasPrefix(uri, "mongodb://") {
+		uri = fmt.Sprint("mongodb://" + uri)
+	}
+	mongoClientOption := mongooptions.Client().ApplyURI(uri)
+	databaseName := "casbin_custom"
+	_, err := NewAdapterWithClientOption(mongoClientOption, databaseName)
+	if err != nil {
+		panic(err)
+	}
+}
+
+func TestNewAdapterWithCollectionName(t *testing.T) {
+	uri := getDbURL()
+	if !strings.HasPrefix(uri, "mongodb+srv://") && !strings.HasPrefix(uri, "mongodb://") {
+		uri = fmt.Sprint("mongodb://" + uri)
+	}
+	mongoClientOption := mongooptions.Client().ApplyURI(uri)
+	databaseName := "casbin_custom"
+	collectionName := "casbin_rule_custom"
+	_, err := NewAdapterWithCollectionName(mongoClientOption, databaseName, collectionName)
 	if err != nil {
 		panic(err)
 	}
