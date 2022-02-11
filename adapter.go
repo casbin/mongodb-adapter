@@ -18,6 +18,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log"
 	"runtime"
 	"strings"
 	"time"
@@ -423,4 +424,219 @@ func (a *adapter) RemoveFilteredPolicy(sec string, ptype string, fieldIndex int,
 	}
 
 	return nil
+}
+
+// UpdatePolicy updates a policy rule from storage.
+// This is part of the Auto-Save feature.
+func (a *adapter) UpdatePolicy(sec string, ptype string, oldRule, newPolicy []string) error {
+	oldLine := savePolicyLine(ptype, oldRule)
+	newLine := savePolicyLine(ptype, newPolicy)
+
+	ctx, cancel := context.WithTimeout(context.TODO(), a.timeout)
+	defer cancel()
+	// Updating all the documents equals to replacing
+	_, err := a.collection.ReplaceOne(ctx, oldLine, newLine)
+	return err
+}
+
+// UpdatePolicies updates some policy rules to storage, like db, redis.
+func (a *adapter) UpdatePolicies(sec string, ptype string, oldRules, newRules [][]string) error {
+	oldLines := make([]CasbinRule, 0, len(oldRules))
+	newLines := make([]CasbinRule, 0, len(oldRules))
+	for _, oldRule := range oldRules {
+		oldLines = append(oldLines, savePolicyLine(ptype, oldRule))
+	}
+	for _, newRule := range newRules {
+		newLines = append(newLines, savePolicyLine(ptype, newRule))
+	}
+
+	ctx, cancel := context.WithTimeout(context.TODO(), a.timeout)
+	defer cancel()
+	for i := range oldRules {
+		_, err := a.collection.ReplaceOne(ctx, oldLines[i], newLines[i])
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// UpdateFilteredPolicies deletes old rules and adds new rules.
+func (a *adapter) UpdateFilteredPolicies(sec string, ptype string, newPolicies [][]string, fieldIndex int, fieldValues ...string) ([][]string, error) {
+	selector := make(map[string]interface{})
+	selector["ptype"] = ptype
+
+	if fieldIndex <= 0 && 0 < fieldIndex+len(fieldValues) {
+		if fieldValues[0-fieldIndex] != "" {
+			selector["v0"] = fieldValues[0-fieldIndex]
+		}
+	}
+	if fieldIndex <= 1 && 1 < fieldIndex+len(fieldValues) {
+		if fieldValues[1-fieldIndex] != "" {
+			selector["v1"] = fieldValues[1-fieldIndex]
+		}
+	}
+	if fieldIndex <= 2 && 2 < fieldIndex+len(fieldValues) {
+		if fieldValues[2-fieldIndex] != "" {
+			selector["v2"] = fieldValues[2-fieldIndex]
+		}
+	}
+	if fieldIndex <= 3 && 3 < fieldIndex+len(fieldValues) {
+		if fieldValues[3-fieldIndex] != "" {
+			selector["v3"] = fieldValues[3-fieldIndex]
+		}
+	}
+	if fieldIndex <= 4 && 4 < fieldIndex+len(fieldValues) {
+		if fieldValues[4-fieldIndex] != "" {
+			selector["v4"] = fieldValues[4-fieldIndex]
+		}
+	}
+	if fieldIndex <= 5 && 5 < fieldIndex+len(fieldValues) {
+		if fieldValues[5-fieldIndex] != "" {
+			selector["v5"] = fieldValues[5-fieldIndex]
+		}
+	}
+
+	oldLines := make([]CasbinRule, 0)
+	newLines := make([]CasbinRule, 0, len(newPolicies))
+	for _, newPolicy := range newPolicies {
+		newLines = append(newLines, savePolicyLine(ptype, newPolicy))
+	}
+
+	oldPolicies, err := a.updateFilteredPoliciesTxn(oldLines, newLines, selector)
+	if err == nil {
+		return oldPolicies, err
+	}
+	// (IllegalOperation) Transaction numbers are only allowed on a replica set member or mongos
+	if mongoErr, ok := err.(mongo.CommandError); !ok || mongoErr.Code != 20 {
+		return nil, err
+	}
+
+	log.Println("[WARNING]: As your mongodb server doesn't allow a replica set, transaction operation is not supported. So Casbin Adapter will run non-transactional updating!")
+	return a.updateFilteredPolicies(oldLines, newLines, selector)
+}
+
+func (a *adapter) updateFilteredPoliciesTxn(oldLines, newLines []CasbinRule, selector map[string]interface{}) ([][]string, error) {
+	ctx, cancel := context.WithTimeout(context.TODO(), a.timeout)
+	defer cancel()
+
+	session, err := a.client.StartSession()
+	if err != nil {
+		return nil, err
+	}
+	defer session.EndSession(context.TODO())
+
+	_, err = session.WithTransaction(ctx, func(sessionCtx mongo.SessionContext) (interface{}, error) {
+		// Load old policies
+		cursor, err := a.collection.Find(ctx, selector)
+		if err != nil {
+			_ = session.AbortTransaction(context.Background())
+			return nil, err
+		}
+		for cursor.Next(ctx) {
+			line := CasbinRule{}
+			err := cursor.Decode(&line)
+			if err != nil {
+				_ = session.AbortTransaction(context.Background())
+				return nil, err
+			}
+			oldLines = append(oldLines, line)
+		}
+		if err = cursor.Close(ctx); err != nil {
+			_ = session.AbortTransaction(context.Background())
+			return nil, err
+		}
+
+		// Delete all old policies
+		if _, err := a.collection.DeleteMany(sessionCtx, selector); err != nil {
+			_ = session.AbortTransaction(context.Background())
+			return nil, err
+		}
+		// Insert new policies
+		for _, newLine := range newLines {
+			if _, err := a.collection.InsertOne(sessionCtx, &newLine); err != nil {
+				_ = session.AbortTransaction(context.Background())
+				return nil, err
+			}
+		}
+		return nil, nil
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	// return deleted rulues
+	oldPolicies := make([][]string, 0)
+	for _, v := range oldLines {
+		oldPolicy := v.toStringPolicy()
+		oldPolicies = append(oldPolicies, oldPolicy)
+	}
+	return oldPolicies, nil
+}
+
+func (a *adapter) updateFilteredPolicies(oldLines, newLines []CasbinRule, selector map[string]interface{}) ([][]string, error) {
+	ctx, cancel := context.WithTimeout(context.TODO(), a.timeout)
+	defer cancel()
+
+	// Load old policies
+	cursor, err := a.collection.Find(ctx, selector)
+	if err != nil {
+		return nil, err
+	}
+	for cursor.Next(ctx) {
+		line := CasbinRule{}
+		err := cursor.Decode(&line)
+		if err != nil {
+			return nil, err
+		}
+		oldLines = append(oldLines, line)
+	}
+	if err = cursor.Close(ctx); err != nil {
+		return nil, err
+	}
+
+	// Delete all old policies
+	if _, err := a.collection.DeleteMany(ctx, selector); err != nil {
+		return nil, err
+	}
+	// Insert new policies
+	for _, newLine := range newLines {
+		if _, err := a.collection.InsertOne(ctx, &newLine); err != nil {
+			return nil, err
+		}
+	}
+
+	// return deleted rulues
+	oldPolicies := make([][]string, 0)
+	for _, v := range oldLines {
+		oldPolicy := v.toStringPolicy()
+		oldPolicies = append(oldPolicies, oldPolicy)
+	}
+	return oldPolicies, nil
+}
+
+func (c *CasbinRule) toStringPolicy() []string {
+	policy := make([]string, 0)
+	if c.PType != "" {
+		policy = append(policy, c.PType)
+	}
+	if c.V0 != "" {
+		policy = append(policy, c.V0)
+	}
+	if c.V1 != "" {
+		policy = append(policy, c.V1)
+	}
+	if c.V2 != "" {
+		policy = append(policy, c.V2)
+	}
+	if c.V3 != "" {
+		policy = append(policy, c.V3)
+	}
+	if c.V4 != "" {
+		policy = append(policy, c.V4)
+	}
+	if c.V5 != "" {
+		policy = append(policy, c.V5)
+	}
+	return policy
 }

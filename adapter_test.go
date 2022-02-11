@@ -27,12 +27,20 @@ import (
 )
 
 var testDbURL = os.Getenv("TEST_MONGODB_URL")
+var testReplicaSetURL = os.Getenv("TEST_REPLICA_SET_URL")
 
 func getDbURL() string {
 	if testDbURL == "" {
 		testDbURL = "127.0.0.1:27017"
 	}
 	return testDbURL
+}
+
+func getReplicaSetURL() string {
+	if testReplicaSetURL == "" {
+		testReplicaSetURL = "127.0.0.1:42069"
+	}
+	return testReplicaSetURL
 }
 
 func testGetPolicy(t *testing.T, e *casbin.Enforcer, res [][]string) {
@@ -45,7 +53,50 @@ func testGetPolicy(t *testing.T, e *casbin.Enforcer, res [][]string) {
 	}
 }
 
-func initPolicy(t *testing.T) {
+func testGetPolicyWithoutOrder(t *testing.T, e *casbin.Enforcer, res [][]string) {
+	myRes := e.GetPolicy()
+
+	if !arrayEqualsWithoutOrder(myRes, res) {
+		t.Error("Policy: ", myRes, ", supposed to be ", res)
+	}
+}
+
+func arrayEqualsWithoutOrder(a [][]string, b [][]string) bool {
+	if len(a) != len(b) {
+		return false
+	}
+
+	mapA := make(map[int]string)
+	mapB := make(map[int]string)
+	order := make(map[int]struct{})
+	l := len(a)
+
+	for i := 0; i < l; i++ {
+		mapA[i] = util.ArrayToString(a[i])
+		mapB[i] = util.ArrayToString(b[i])
+	}
+
+	for i := 0; i < l; i++ {
+		for j := 0; j < l; j++ {
+			if _, ok := order[j]; ok {
+				if j == l-1 {
+					return false
+				} else {
+					continue
+				}
+			}
+			if mapA[i] == mapB[j] {
+				order[j] = struct{}{}
+				break
+			} else if j == l-1 {
+				return false
+			}
+		}
+	}
+	return true
+}
+
+func initPolicy(t *testing.T, dbURL string) {
 	// Because the DB is empty at first,
 	// so we need to load the policy from the file adapter (.CSV) first.
 	e, err := casbin.NewEnforcer("examples/rbac_model.conf", "examples/rbac_policy.csv")
@@ -53,7 +104,7 @@ func initPolicy(t *testing.T) {
 		panic(err)
 	}
 
-	a, err := NewAdapter(getDbURL())
+	a, err := NewAdapter(dbURL)
 	if err != nil {
 		panic(err)
 	}
@@ -84,7 +135,7 @@ func initPolicy(t *testing.T) {
 }
 
 func TestAdapter(t *testing.T) {
-	initPolicy(t)
+	initPolicy(t, getDbURL())
 
 	// Note: you don't need to look at the above code
 	// if you already have a working DB with policy inside.
@@ -189,7 +240,7 @@ func TestAdapter(t *testing.T) {
 }
 
 func TestAddPolicies(t *testing.T) {
-	initPolicy(t)
+	initPolicy(t, getDbURL())
 
 	a, err := NewAdapter(getDbURL())
 	if err != nil {
@@ -428,4 +479,149 @@ func TestNewAdapterWithCollectionName(t *testing.T) {
 	if err != nil {
 		panic(err)
 	}
+}
+
+func TestUpdatePolicy(t *testing.T) {
+	initPolicy(t, getDbURL())
+
+	a, err := NewAdapter(getDbURL())
+	if err != nil {
+		panic(err)
+	}
+
+	e, err := casbin.NewEnforcer("examples/rbac_model.conf", a)
+	if err != nil {
+		panic(err)
+	}
+
+	testGetPolicy(t, e, [][]string{
+		{"alice", "data1", "read"},
+		{"bob", "data2", "write"},
+		{"data2_admin", "data2", "read"},
+		{"data2_admin", "data2", "write"},
+	},
+	)
+	testUpdatePolicy(t, a.(*adapter))
+	testUpdatePolicies(t, a.(*adapter))
+}
+
+func testUpdatePolicy(t *testing.T, a *adapter) {
+	// NewEnforcer() will load the policy automatically.
+	e, _ := casbin.NewEnforcer("examples/rbac_model.conf", a)
+
+	e.EnableAutoSave(true)
+	e.UpdatePolicy([]string{"alice", "data1", "read"}, []string{"alice", "data1", "write"})
+	e.LoadPolicy()
+	testGetPolicy(t, e, [][]string{{"alice", "data1", "write"}, {"bob", "data2", "write"}, {"data2_admin", "data2", "read"}, {"data2_admin", "data2", "write"}})
+}
+
+func testUpdatePolicies(t *testing.T, a *adapter) {
+	// NewEnforcer() will load the policy automatically.
+	e, _ := casbin.NewEnforcer("examples/rbac_model.conf", a)
+
+	e.EnableAutoSave(true)
+	e.UpdatePolicies([][]string{{"alice", "data1", "write"}, {"bob", "data2", "write"}}, [][]string{{"alice", "data1", "read"}, {"bob", "data2", "read"}})
+	e.LoadPolicy()
+	testGetPolicy(t, e, [][]string{{"alice", "data1", "read"}, {"bob", "data2", "read"}, {"data2_admin", "data2", "read"}, {"data2_admin", "data2", "write"}})
+}
+
+func initUpdateFilteredPolicies(sec string, ptype string, newPolicies [][]string, fieldIndex int, fieldValues ...string) ([]CasbinRule, []CasbinRule, map[string]interface{}) {
+	selector := make(map[string]interface{})
+	selector["ptype"] = ptype
+
+	if fieldIndex <= 0 && 0 < fieldIndex+len(fieldValues) {
+		if fieldValues[0-fieldIndex] != "" {
+			selector["v0"] = fieldValues[0-fieldIndex]
+		}
+	}
+	if fieldIndex <= 1 && 1 < fieldIndex+len(fieldValues) {
+		if fieldValues[1-fieldIndex] != "" {
+			selector["v1"] = fieldValues[1-fieldIndex]
+		}
+	}
+	if fieldIndex <= 2 && 2 < fieldIndex+len(fieldValues) {
+		if fieldValues[2-fieldIndex] != "" {
+			selector["v2"] = fieldValues[2-fieldIndex]
+		}
+	}
+	if fieldIndex <= 3 && 3 < fieldIndex+len(fieldValues) {
+		if fieldValues[3-fieldIndex] != "" {
+			selector["v3"] = fieldValues[3-fieldIndex]
+		}
+	}
+	if fieldIndex <= 4 && 4 < fieldIndex+len(fieldValues) {
+		if fieldValues[4-fieldIndex] != "" {
+			selector["v4"] = fieldValues[4-fieldIndex]
+		}
+	}
+	if fieldIndex <= 5 && 5 < fieldIndex+len(fieldValues) {
+		if fieldValues[5-fieldIndex] != "" {
+			selector["v5"] = fieldValues[5-fieldIndex]
+		}
+	}
+
+	oldLines := make([]CasbinRule, 0)
+	newLines := make([]CasbinRule, 0, len(newPolicies))
+	for _, newPolicy := range newPolicies {
+		newLines = append(newLines, savePolicyLine(ptype, newPolicy))
+	}
+	return oldLines, newLines, selector
+}
+
+func TestUpdateFilteredPolicies(t *testing.T) {
+	initPolicy(t, getDbURL())
+
+	a, err := NewAdapter(getDbURL())
+	if err != nil {
+		panic(err)
+	}
+
+	e, err := casbin.NewEnforcer("examples/rbac_model.conf", a)
+	if err != nil {
+		panic(err)
+	}
+
+	testGetPolicy(t, e, [][]string{
+		{"alice", "data1", "read"},
+		{"bob", "data2", "write"},
+		{"data2_admin", "data2", "read"},
+		{"data2_admin", "data2", "write"},
+	},
+	)
+
+	initUpdateFilteredPolicies("p", "p", [][]string{{"alice", "data1", "write"}}, 0, "alice", "data1", "read")
+
+	e.EnableAutoSave(true)
+	e.UpdateFilteredPolicies([][]string{{"alice", "data1", "write"}}, 0, "alice", "data1", "read")
+	e.UpdateFilteredPolicies([][]string{{"bob", "data2", "read"}}, 0, "bob", "data2", "write")
+	e.LoadPolicy()
+	testGetPolicyWithoutOrder(t, e, [][]string{{"alice", "data1", "write"}, {"bob", "data2", "read"}, {"data2_admin", "data2", "read"}, {"data2_admin", "data2", "write"}})
+}
+
+func TestUpdateFilteredPoliciesTxn(t *testing.T) {
+	initPolicy(t, getReplicaSetURL())
+
+	a, err := NewAdapter(getReplicaSetURL())
+	if err != nil {
+		panic(err)
+	}
+
+	e, err := casbin.NewEnforcer("examples/rbac_model.conf", a)
+	if err != nil {
+		panic(err)
+	}
+
+	testGetPolicy(t, e, [][]string{
+		{"alice", "data1", "read"},
+		{"bob", "data2", "write"},
+		{"data2_admin", "data2", "read"},
+		{"data2_admin", "data2", "write"},
+	},
+	)
+
+	e.EnableAutoSave(true)
+	e.UpdateFilteredPolicies([][]string{{"alice", "data1", "write"}}, 0, "alice", "data1", "read")
+	e.UpdateFilteredPolicies([][]string{{"bob", "data2", "read"}}, 0, "bob", "data2", "write")
+	e.LoadPolicy()
+	testGetPolicyWithoutOrder(t, e, [][]string{{"alice", "data1", "write"}, {"bob", "data2", "read"}, {"data2_admin", "data2", "read"}, {"data2_admin", "data2", "write"}})
 }
