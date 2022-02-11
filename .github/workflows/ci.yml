@@ -19,6 +19,13 @@ jobs:
         with:
           go-version: 1.14
 
+      - name: Start MongoDB
+        uses: supercharge/mongodb-github-action@1.7.0
+        with:
+          mongodb-version: 4.4
+          mongodb-replica-set: test-rs
+          mongodb-port: 42069
+
       - uses: actions/checkout@v2
       - name: Run Unit tests
         run: go test -v -coverprofile=./profile.cov ./...
