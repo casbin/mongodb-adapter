@@ -30,7 +30,7 @@ var testDbURL = os.Getenv("TEST_MONGODB_URL")
 
 func getDbURL() string {
 	if testDbURL == "" {
-		testDbURL = "127.0.0.1:27017"
+		testDbURL = "root:root@localhost:27017/?authSource=admin&readPreference=primary&ssl=false"
 	}
 	return testDbURL
 }
@@ -397,7 +397,7 @@ func TestNewAdapterWithUnknownURL(t *testing.T) {
 }
 
 func TestNewAdapterWithDatabase(t *testing.T) {
-	_, err := NewAdapter(fmt.Sprint(getDbURL() + "/abc"))
+	_, err := NewAdapter(fmt.Sprint("root:root@localhost:27017/abc?authSource=admin&readPreference=primary&ssl=false"))
 	if err != nil {
 		panic(err)
 	}
