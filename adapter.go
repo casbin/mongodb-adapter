@@ -57,14 +57,16 @@ type adapter struct {
 }
 
 func (a *adapter) Client(ctx context.Context) *mongo.Client {
-	if a.client != nil || a.client.Ping(ctx, nil) != nil {
-		client, err := mongo.Connect(ctx, a.clientOption)
-		if err != nil {
-			return nil
-		}
-
-		a.client = client
+	if a.client != nil && a.client.Ping(ctx, nil) == nil {
+		return a.client
 	}
+
+	client, err := mongo.Connect(ctx, a.clientOption)
+	if err != nil {
+		return nil
+	}
+
+	a.client = client
 
 	return a.client
 }
