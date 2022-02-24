@@ -17,3 +17,5 @@
 .vscode/
 vendor/
 *.iml
+
+.envrc
