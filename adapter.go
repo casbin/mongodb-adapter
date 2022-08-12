@@ -227,7 +227,6 @@ func (a *adapter) LoadFilteredPolicy(model model.Model, filter interface{}) erro
 	} else {
 		a.filtered = true
 	}
-	line := CasbinRule{}
 
 	ctx, cancel := context.WithTimeout(context.TODO(), a.timeout)
 	defer cancel()
@@ -238,6 +237,7 @@ func (a *adapter) LoadFilteredPolicy(model model.Model, filter interface{}) erro
 	}
 
 	for cursor.Next(ctx) {
+		line := CasbinRule{}
 		err := cursor.Decode(&line)
 		if err != nil {
 			return err
