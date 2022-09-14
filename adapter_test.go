@@ -15,7 +15,9 @@
 package mongodbadapter
 
 import (
+	"context"
 	"fmt"
+	"go.mongodb.org/mongo-driver/mongo"
 	"os"
 	"strings"
 	"testing"
@@ -476,6 +478,27 @@ func TestNewAdapterWithCollectionName(t *testing.T) {
 	databaseName := "casbin_custom"
 	collectionName := "casbin_rule_custom"
 	_, err := NewAdapterWithCollectionName(mongoClientOption, databaseName, collectionName)
+	if err != nil {
+		panic(err)
+	}
+}
+
+func TestNewAdapterByDB(t *testing.T) {
+	uri := getDbURL()
+	if !strings.HasPrefix(uri, "mongodb+srv://") && !strings.HasPrefix(uri, "mongodb://") {
+		uri = fmt.Sprint("mongodb://" + uri)
+	}
+	mongoClientOption := mongooptions.Client().ApplyURI(uri)
+	client, err := mongo.Connect(context.Background(), mongoClientOption)
+	if err != nil {
+		panic(err)
+	}
+
+	config := AdapterConfig{
+		DatabaseName:   "casbin_custom",
+		CollectionName: "casbin_rule_custom",
+	}
+	_, err = NewAdapterByDB(client, &config)
 	if err != nil {
 		panic(err)
 	}

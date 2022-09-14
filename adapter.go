@@ -49,11 +49,10 @@ type CasbinRule struct {
 
 // adapter represents the MongoDB adapter for policy storage.
 type adapter struct {
-	clientOption *options.ClientOptions
-	client       *mongo.Client
-	collection   *mongo.Collection
-	timeout      time.Duration
-	filtered     bool
+	client     *mongo.Client
+	collection *mongo.Collection
+	timeout    time.Duration
+	filtered   bool
 }
 
 // finalizer is the destructor for adapter.
@@ -103,9 +102,7 @@ func NewAdapterWithCollectionName(clientOption *options.ClientOptions, databaseN
 
 // baseNewAdapter is a base constructor for Adapter
 func baseNewAdapter(clientOption *options.ClientOptions, databaseName string, collectionName string, timeout ...interface{}) (persist.BatchAdapter, error) {
-	a := &adapter{
-		clientOption: clientOption,
-	}
+	a := &adapter{}
 	a.filtered = false
 
 	if len(timeout) == 1 {
@@ -117,7 +114,7 @@ func baseNewAdapter(clientOption *options.ClientOptions, databaseName string, co
 	}
 
 	// Open the DB, create it if not existed.
-	err := a.open(databaseName, collectionName)
+	err := a.open(clientOption, databaseName, collectionName)
 	if err != nil {
 		return nil, err
 	}
@@ -140,11 +137,45 @@ func NewFilteredAdapter(url string) (persist.FilteredAdapter, error) {
 	return a.(*adapter), nil
 }
 
-func (a *adapter) open(databaseName string, collectionName string) error {
+type AdapterConfig struct {
+	DatabaseName   string
+	CollectionName string
+	Timeout        time.Duration
+	IsFiltered     bool
+}
+
+func NewAdapterByDB(client *mongo.Client, config *AdapterConfig) (persist.BatchAdapter, error) {
+	if config == nil {
+		config = &AdapterConfig{}
+	}
+	if config.CollectionName == "" {
+		config.CollectionName = defaultCollectionName
+	}
+	if config.DatabaseName == "" {
+		config.DatabaseName = defaultDatabaseName
+	}
+	if config.Timeout == 0 {
+		config.Timeout = defaultTimeout
+	}
+
+	a := &adapter{
+		client:     client,
+		collection: client.Database(config.DatabaseName).Collection(config.CollectionName),
+		timeout:    config.Timeout,
+		filtered:   config.IsFiltered,
+	}
+
+	// Call the destructor when the object is released.
+	runtime.SetFinalizer(a, finalizer)
+
+	return a, nil
+}
+
+func (a *adapter) open(clientOption *options.ClientOptions, databaseName string, collectionName string) error {
 	ctx, cancel := context.WithTimeout(context.TODO(), a.timeout)
 	defer cancel()
 
-	client, err := mongo.Connect(ctx, a.clientOption)
+	client, err := mongo.Connect(ctx, clientOption)
 	if err != nil {
 		return err
 	}
