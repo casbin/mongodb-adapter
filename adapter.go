@@ -192,7 +192,7 @@ func (a *adapter) dropTable() error {
 	return nil
 }
 
-func loadPolicyLine(line CasbinRule, model model.Model) {
+func loadPolicyLine(line CasbinRule, model model.Model) error {
 	var p = []string{line.PType,
 		line.V0, line.V1, line.V2, line.V3, line.V4, line.V5}
 	var lineText string
@@ -210,7 +210,7 @@ func loadPolicyLine(line CasbinRule, model model.Model) {
 		lineText = strings.Join(p[:2], ", ")
 	}
 
-	persist.LoadPolicyLine(lineText, model)
+	return persist.LoadPolicyLine(lineText, model)
 }
 
 // LoadPolicy loads policy from database.
@@ -242,7 +242,10 @@ func (a *adapter) LoadFilteredPolicy(model model.Model, filter interface{}) erro
 		if err != nil {
 			return err
 		}
-		loadPolicyLine(line, model)
+		err = loadPolicyLine(line, model)
+		if err != nil {
+			return err
+		}
 	}
 
 	return cursor.Close(ctx)
