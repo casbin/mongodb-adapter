@@ -310,7 +310,7 @@ func TestAddPolicies(t *testing.T) {
 }
 
 func TestDeleteFilteredAdapter(t *testing.T) {
-	a, err := NewFilteredAdapter(getDbURL())
+	a, err := NewFilteredAdapter(getDbURL() + "/casbin_test_new")
 	if err != nil {
 		panic(err)
 	}
@@ -329,10 +329,6 @@ func TestDeleteFilteredAdapter(t *testing.T) {
 	}
 	// The policy has a new rule: {"alice", "data1", "write"}.
 	testGetPolicy(t, e, [][]string{
-		{"alice", "data1", "read"},
-		{"bob", "data2", "write"},
-		{"data2_admin", "data2", "read"},
-		{"data2_admin", "data2", "write"},
 		{"domain1", "alice", "data3", "read", "accept", "service1"},
 		{"domain1", "alice", "data3", "write", "accept", "service2"},
 	},
@@ -343,10 +339,6 @@ func TestDeleteFilteredAdapter(t *testing.T) {
 		t.Errorf("Expected LoadPolicy() to be successful; got %v", err)
 	}
 	testGetPolicy(t, e, [][]string{
-		{"alice", "data1", "read"},
-		{"bob", "data2", "write"},
-		{"data2_admin", "data2", "read"},
-		{"data2_admin", "data2", "write"},
 		{"domain1", "alice", "data3", "write", "accept", "service2"},
 	},
 	)
@@ -355,12 +347,7 @@ func TestDeleteFilteredAdapter(t *testing.T) {
 	if err := e.LoadPolicy(); err != nil {
 		t.Errorf("Expected LoadPolicy() to be successful; got %v", err)
 	}
-	testGetPolicy(t, e, [][]string{
-		{"alice", "data1", "read"},
-		{"bob", "data2", "write"},
-		{"data2_admin", "data2", "read"},
-		{"data2_admin", "data2", "write"},
-	},
+	testGetPolicy(t, e, [][]string{},
 	)
 }
 
