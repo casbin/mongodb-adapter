@@ -28,7 +28,6 @@ import (
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
-	"go.mongodb.org/mongo-driver/x/bsonx"
 	"go.mongodb.org/mongo-driver/x/mongo/driver/connstring"
 )
 
@@ -187,10 +186,13 @@ func (a *adapter) open(clientOption *options.ClientOptions, databaseName string,
 	a.collection = collection
 
 	indexes := []string{"ptype", "v0", "v1", "v2", "v3", "v4", "v5"}
-	keysDoc := bsonx.Doc{}
+	keysDoc := bson.D{}
 
 	for _, k := range indexes {
-		keysDoc = keysDoc.Append(k, bsonx.Int32(1))
+		keyDoc := bson.E{}
+		keyDoc.Key = k
+		keyDoc.Value = 1
+		keysDoc = append(keysDoc, keyDoc)
 	}
 
 	if _, err = collection.Indexes().CreateOne(
@@ -209,7 +211,8 @@ func (a *adapter) open(clientOption *options.ClientOptions, databaseName string,
 func (a *adapter) close() {
 	ctx, cancel := context.WithTimeout(context.TODO(), a.timeout)
 	defer cancel()
-	a.client.Disconnect(ctx)
+
+	_ = a.client.Disconnect(ctx)
 }
 
 func (a *adapter) dropTable() error {
