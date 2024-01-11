@@ -367,20 +367,16 @@ func (a *adapter) AddPolicy(sec string, ptype string, rule []string) error {
 
 // AddPolicies adds policy rules to the storage.
 func (a *adapter) AddPolicies(sec string, ptype string, rules [][]string) error {
-	var lines []CasbinRule
+	var lines []interface{}
 	for _, rule := range rules {
 		line := savePolicyLine(ptype, rule)
 		lines = append(lines, line)
 	}
-
-	for _, line := range lines {
-		ctx, cancel := context.WithTimeout(context.TODO(), a.timeout)
-		defer cancel()
-		if _, err := a.collection.InsertOne(ctx, line); err != nil {
-			return err
-		}
+	ctx, cancel := context.WithTimeout(context.TODO(), a.timeout)
+	defer cancel()
+	if _, err := a.collection.InsertMany(ctx, lines); err != nil {
+		return err
 	}
-
 	return nil
 }
 
