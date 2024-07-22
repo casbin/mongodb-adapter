@@ -157,11 +157,17 @@ func NewAdapterByDB(client *mongo.Client, config *AdapterConfig) (persist.BatchA
 		config.Timeout = defaultTimeout
 	}
 
+	collection := client.Database(config.DatabaseName).Collection(config.CollectionName)
+
 	a := &adapter{
 		client:     client,
-		collection: client.Database(config.DatabaseName).Collection(config.CollectionName),
+		collection: collection,
 		timeout:    config.Timeout,
 		filtered:   config.IsFiltered,
+	}
+
+	if err := a.prepareIndexes(); err != nil {
+		return nil, err
 	}
 
 	// Call the destructor when the object is released.
@@ -185,6 +191,14 @@ func (a *adapter) open(clientOption *options.ClientOptions, databaseName string,
 	a.client = client
 	a.collection = collection
 
+	if err = a.prepareIndexes(); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (a *adapter) prepareIndexes() error {
 	indexes := []string{"ptype", "v0", "v1", "v2", "v3", "v4", "v5"}
 	keysDoc := bson.D{}
 
@@ -195,7 +209,7 @@ func (a *adapter) open(clientOption *options.ClientOptions, databaseName string,
 		keysDoc = append(keysDoc, keyDoc)
 	}
 
-	if _, err = collection.Indexes().CreateOne(
+	if _, err := a.collection.Indexes().CreateOne(
 		context.Background(),
 		mongo.IndexModel{
 			Keys:    keysDoc,
