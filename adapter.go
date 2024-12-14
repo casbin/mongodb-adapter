@@ -25,10 +25,10 @@ import (
 
 	"github.com/casbin/casbin/v2/model"
 	"github.com/casbin/casbin/v2/persist"
-	"go.mongodb.org/mongo-driver/bson"
-	"go.mongodb.org/mongo-driver/mongo"
-	"go.mongodb.org/mongo-driver/mongo/options"
-	"go.mongodb.org/mongo-driver/x/mongo/driver/connstring"
+	"go.mongodb.org/mongo-driver/v2/bson"
+	"go.mongodb.org/mongo-driver/v2/mongo"
+	"go.mongodb.org/mongo-driver/v2/mongo/options"
+	"go.mongodb.org/mongo-driver/v2/x/mongo/driver/connstring"
 )
 
 const defaultTimeout time.Duration = 30 * time.Second
@@ -177,10 +177,8 @@ func NewAdapterByDB(client *mongo.Client, config *AdapterConfig) (persist.BatchA
 }
 
 func (a *adapter) open(clientOption *options.ClientOptions, databaseName string, collectionName string) error {
-	ctx, cancel := context.WithTimeout(context.TODO(), a.timeout)
-	defer cancel()
 
-	client, err := mongo.Connect(ctx, clientOption)
+	client, err := mongo.Connect(clientOption)
 	if err != nil {
 		return err
 	}
@@ -573,7 +571,7 @@ func (a *adapter) updateFilteredPoliciesTxn(oldLines, newLines []CasbinRule, sel
 	}
 	defer session.EndSession(context.TODO())
 
-	_, err = session.WithTransaction(ctx, func(sessionCtx mongo.SessionContext) (interface{}, error) {
+	_, err = session.WithTransaction(ctx, func(sessionCtx context.Context) (interface{}, error) {
 		// Load old policies
 		cursor, err := a.collection.Find(ctx, selector)
 		if err != nil {

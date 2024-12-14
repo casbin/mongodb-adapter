@@ -15,26 +15,28 @@
 package mongodbadapter
 
 import (
-	"context"
 	"fmt"
-	"go.mongodb.org/mongo-driver/mongo"
 	"os"
 	"strings"
 	"testing"
 
+	"go.mongodb.org/mongo-driver/v2/mongo"
+	mongooptions "go.mongodb.org/mongo-driver/v2/mongo/options"
+
 	"github.com/casbin/casbin/v2"
 	"github.com/casbin/casbin/v2/util"
-	"go.mongodb.org/mongo-driver/bson"
-	mongooptions "go.mongodb.org/mongo-driver/mongo/options"
+	"go.mongodb.org/mongo-driver/v2/bson"
 )
 
 var testDbURL = os.Getenv("TEST_MONGODB_URL")
 var testReplicaSetURL = os.Getenv("TEST_REPLICA_SET_URL")
 
 func getDbURL() string {
+	// load .env
 	if testDbURL == "" {
 		testDbURL = "127.0.0.1:27017"
 	}
+	fmt.Println("testDbURL", testDbURL)
 	return testDbURL
 }
 
@@ -347,8 +349,7 @@ func TestDeleteFilteredAdapter(t *testing.T) {
 	if err := e.LoadPolicy(); err != nil {
 		t.Errorf("Expected LoadPolicy() to be successful; got %v", err)
 	}
-	testGetPolicy(t, e, [][]string{},
-	)
+	testGetPolicy(t, e, [][]string{})
 }
 
 func TestFilteredAdapter(t *testing.T) {
@@ -476,7 +477,7 @@ func TestNewAdapterByDB(t *testing.T) {
 		uri = fmt.Sprint("mongodb://" + uri)
 	}
 	mongoClientOption := mongooptions.Client().ApplyURI(uri)
-	client, err := mongo.Connect(context.Background(), mongoClientOption)
+	client, err := mongo.Connect(mongoClientOption)
 	if err != nil {
 		panic(err)
 	}
