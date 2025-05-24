@@ -240,22 +240,18 @@ func (a *adapter) dropTable() error {
 func loadPolicyLine(line CasbinRule, model model.Model) error {
 	var p = []string{line.PType,
 		line.V0, line.V1, line.V2, line.V3, line.V4, line.V5}
-	var lineText string
-	if line.V5 != "" {
-		lineText = strings.Join(p, ", ")
-	} else if line.V4 != "" {
-		lineText = strings.Join(p[:6], ", ")
-	} else if line.V3 != "" {
-		lineText = strings.Join(p[:5], ", ")
-	} else if line.V2 != "" {
-		lineText = strings.Join(p[:4], ", ")
-	} else if line.V1 != "" {
-		lineText = strings.Join(p[:3], ", ")
-	} else if line.V0 != "" {
-		lineText = strings.Join(p[:2], ", ")
-	}
 
-	return persist.LoadPolicyLine(lineText, model)
+	index := len(p) - 1
+	for p[index] == "" {
+		index--
+	}
+	index += 1
+	p = p[:index]
+	err := persist.LoadPolicyArray(p, model)
+	if err != nil {
+		return err
+	}
+	return nil
 }
 
 // LoadPolicy loads policy from database.
