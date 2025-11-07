@@ -658,10 +658,10 @@ func TestSavePolicyPreservesIndexes(t *testing.T) {
 	// Try to add a duplicate policy - should fail due to unique index
 	adapter := a.(*adapter)
 	line := savePolicyLine("p", []string{"alice", "data1", "read"})
-	
+
 	ctx, cancel := context.WithTimeout(context.TODO(), adapter.timeout)
 	defer cancel()
-	
+
 	// Attempting to insert a duplicate should fail
 	_, err = adapter.collection.InsertOne(ctx, line)
 	if err == nil {
