@@ -688,8 +688,10 @@ func TestSavePolicyPreventsDuplicates(t *testing.T) {
 		t.Errorf("Expected SavePolicy() to be successful; got %v", err)
 	}
 
-	// Try to add a duplicate via AddPolicy - should be prevented by unique index
-	_, err = e.AddPolicy("alice", "data1", "read")
+	// Try to add a duplicate directly via adapter (bypassing enforcer's in-memory check)
+	// This should be prevented by the unique index
+	adapter := a.(*adapter)
+	err = adapter.AddPolicy("p", "p", []string{"alice", "data1", "read"})
 	if err == nil {
 		t.Error("Expected AddPolicy of duplicate to fail due to unique index, but it succeeded")
 	}
