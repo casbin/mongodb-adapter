@@ -230,7 +230,7 @@ func (a *adapter) dropTable() error {
 	ctx, cancel := context.WithTimeout(context.TODO(), a.timeout)
 	defer cancel()
 
-	err := a.collection.Drop(ctx)
+	_, err := a.collection.DeleteMany(ctx, bson.D{{}})
 	if err != nil {
 		return err
 	}

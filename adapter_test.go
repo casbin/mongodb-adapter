@@ -15,6 +15,7 @@
 package mongodbadapter
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"strings"
@@ -633,4 +634,63 @@ func TestUpdateFilteredPoliciesTxn(t *testing.T) {
 	e.UpdateFilteredPolicies([][]string{{"bob", "data2", "read"}}, 0, "bob", "data2", "write")
 	e.LoadPolicy()
 	testGetPolicyWithoutOrder(t, e, [][]string{{"alice", "data1", "write"}, {"bob", "data2", "read"}, {"data2_admin", "data2", "read"}, {"data2_admin", "data2", "write"}})
+}
+
+func TestSavePolicyPreservesIndexes(t *testing.T) {
+	// Initialize with some policies
+	initPolicy(t, getDbURL())
+
+	a, err := NewAdapter(getDbURL())
+	if err != nil {
+		panic(err)
+	}
+
+	e, err := casbin.NewEnforcer("examples/rbac_model.conf", a)
+	if err != nil {
+		panic(err)
+	}
+
+	// Save policy which should NOT drop indexes
+	if err := e.SavePolicy(); err != nil {
+		t.Errorf("Expected SavePolicy() to be successful; got %v", err)
+	}
+
+	// Try to add a duplicate policy - should fail due to unique index
+	adapter := a.(*adapter)
+	line := savePolicyLine("p", []string{"alice", "data1", "read"})
+	
+	ctx, cancel := context.WithTimeout(context.TODO(), adapter.timeout)
+	defer cancel()
+	
+	// Attempting to insert a duplicate should fail
+	_, err = adapter.collection.InsertOne(ctx, line)
+	if err == nil {
+		t.Error("Expected InsertOne of duplicate to fail due to unique index, but it succeeded")
+	}
+}
+
+func TestSavePolicyPreventsDuplicates(t *testing.T) {
+	// Initialize with some policies
+	initPolicy(t, getDbURL())
+
+	a, err := NewAdapter(getDbURL())
+	if err != nil {
+		panic(err)
+	}
+
+	e, err := casbin.NewEnforcer("examples/rbac_model.conf", a)
+	if err != nil {
+		panic(err)
+	}
+
+	// Save policy which should NOT drop indexes
+	if err := e.SavePolicy(); err != nil {
+		t.Errorf("Expected SavePolicy() to be successful; got %v", err)
+	}
+
+	// Try to add a duplicate via AddPolicy - should be prevented by unique index
+	_, err = e.AddPolicy("alice", "data1", "read")
+	if err == nil {
+		t.Error("Expected AddPolicy of duplicate to fail due to unique index, but it succeeded")
+	}
 }
