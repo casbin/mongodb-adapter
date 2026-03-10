@@ -31,9 +31,11 @@ import (
 	"go.mongodb.org/mongo-driver/v2/x/mongo/driver/connstring"
 )
 
-const defaultTimeout time.Duration = 30 * time.Second
-const defaultDatabaseName string = "casbin"
-const defaultCollectionName string = "casbin_rule"
+const (
+	defaultTimeout        time.Duration = 30 * time.Second
+	defaultDatabaseName   string        = "casbin"
+	defaultCollectionName string        = "casbin_rule"
+)
 
 // CasbinRule represents a rule in Casbin.
 type CasbinRule struct {
@@ -69,7 +71,6 @@ func NewAdapter(url string, timeout ...interface{}) (persist.BatchAdapter, error
 
 	// Parse and validate url before apply it.
 	connString, err := connstring.ParseAndValidate(url)
-
 	if err != nil {
 		return nil, err
 	}
@@ -238,8 +239,10 @@ func (a *adapter) dropTable() error {
 }
 
 func loadPolicyLine(line CasbinRule, model model.Model) error {
-	var p = []string{line.PType,
-		line.V0, line.V1, line.V2, line.V3, line.V4, line.V5}
+	p := []string{
+		line.PType,
+		line.V0, line.V1, line.V2, line.V3, line.V4, line.V5,
+	}
 
 	index := len(p) - 1
 	for p[index] == "" {
@@ -350,6 +353,10 @@ func (a *adapter) SavePolicy(model model.Model) error {
 	}
 	ctx, cancel := context.WithTimeout(context.TODO(), a.timeout)
 	defer cancel()
+
+	if len(lines) < 1 {
+		return nil
+	}
 
 	if _, err := a.collection.InsertMany(ctx, lines); err != nil {
 		return err
