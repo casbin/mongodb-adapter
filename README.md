@@ -5,7 +5,7 @@ MongoDB Adapter is the [Mongo DB](https://www.mongodb.com) adapter for [Casbin](
 
 ## Installation
 
-    go get -u github.com/casbin/mongodb-adapter/v4
+    go get -u github.com/casbin/mongodb-adapter/v5
 
 ## Simple Example
 
@@ -13,8 +13,8 @@ MongoDB Adapter is the [Mongo DB](https://www.mongodb.com) adapter for [Casbin](
 package main
 
 import (
-	"github.com/casbin/casbin/v2"
-	"github.com/casbin/mongodb-adapter/v4"
+	"github.com/casbin/casbin/v3"
+	"github.com/casbin/mongodb-adapter/v5"
 )
 
 func main() {
@@ -55,8 +55,8 @@ func main() {
 package main
 
 import (
-	"github.com/casbin/casbin/v2"
-	"github.com/casbin/mongodb-adapter/v4"
+	"github.com/casbin/casbin/v3"
+	"github.com/casbin/mongodb-adapter/v5"
 	mongooptions "go.mongodb.org/mongo-driver/mongo/options"
 )
 

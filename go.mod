@@ -1,15 +1,17 @@
-module github.com/casbin/mongodb-adapter/v4
+module github.com/casbin/mongodb-adapter/v5
 
 go 1.20
 
 require (
-	github.com/casbin/casbin/v2 v2.71.1
+	github.com/casbin/casbin/v3 v3.10.0
 	go.mongodb.org/mongo-driver/v2 v2.2.1
 )
 
 require (
-	github.com/Knetic/govaluate v3.0.1-0.20171022003610-9aa49832a739+incompatible // indirect
+	github.com/bmatcuk/doublestar/v4 v4.6.1 // indirect
+	github.com/casbin/govaluate v1.3.0 // indirect
 	github.com/golang/snappy v1.0.0 // indirect
+	github.com/google/uuid v1.6.0 // indirect
 	github.com/klauspost/compress v1.16.7 // indirect
 	github.com/xdg-go/pbkdf2 v1.0.0 // indirect
 	github.com/xdg-go/scram v1.1.2 // indirect
