@@ -1,4 +1,4 @@
-module github.com/casbin/mongodb-adapter/v4
+module github.com/apache/casbin-mongodb-adapter/v4
 
 go 1.20
 

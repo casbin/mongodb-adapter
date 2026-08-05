@@ -1,11 +1,11 @@
-MongoDB Adapter [![CI](https://github.com/casbin/mongodb-adapter/actions/workflows/ci.yml/badge.svg)](https://github.com/casbin/mongodb-adapter/actions/workflows/ci.yml) [![Coverage Status](https://coveralls.io/repos/github/casbin/mongodb-adapter/badge.svg?branch=master)](https://coveralls.io/github/casbin/mongodb-adapter?branch=master) [![Godoc](https://godoc.org/github.com/casbin/mongodb-adapter?status.svg)](https://godoc.org/github.com/casbin/mongodb-adapter)
+MongoDB Adapter [![CI](https://github.com/apache/casbin-mongodb-adapter/actions/workflows/ci.yml/badge.svg)](https://github.com/apache/casbin-mongodb-adapter/actions/workflows/ci.yml) [![Coverage Status](https://coveralls.io/repos/github/apache/casbin-mongodb-adapter/badge.svg?branch=master)](https://coveralls.io/github/apache/casbin-mongodb-adapter?branch=master) [![Godoc](https://godoc.org/github.com/apache/casbin-mongodb-adapter?status.svg)](https://godoc.org/github.com/apache/casbin-mongodb-adapter)
 ====
 
 MongoDB Adapter is the [Mongo DB](https://www.mongodb.com) adapter for [Casbin](https://github.com/casbin/casbin). With this library, Casbin can load policy from MongoDB or save policy to it.
 
 ## Installation
 
-    go get -u github.com/casbin/mongodb-adapter/v4
+    go get -u github.com/apache/casbin-mongodb-adapter/v4
 
 ## Simple Example
 
@@ -14,7 +14,7 @@ package main
 
 import (
 	"github.com/casbin/casbin/v3"
-	"github.com/casbin/mongodb-adapter/v4"
+	"github.com/apache/casbin-mongodb-adapter/v4"
 )
 
 func main() {
@@ -56,7 +56,7 @@ package main
 
 import (
 	"github.com/casbin/casbin/v3"
-	"github.com/casbin/mongodb-adapter/v4"
+	"github.com/apache/casbin-mongodb-adapter/v4"
 	mongooptions "go.mongodb.org/mongo-driver/mongo/options"
 )
 
