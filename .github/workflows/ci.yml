@@ -33,18 +33,3 @@ jobs:
       - uses: shogo82148/actions-goveralls@v1
         with:
           path-to-profile: ./profile.cov
-
-  semantic-release:
-    needs: [test]
-    runs-on: ubuntu-latest
-    steps:
-
-      - uses: actions/checkout@v2
-
-      - name: Run semantic-release
-        if: github.repository == 'casbin/mongodb-adapter' && github.event_name == 'push'
-        run: |
-          npm install --save-dev semantic-release@17.2.4
-          npx semantic-release
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
