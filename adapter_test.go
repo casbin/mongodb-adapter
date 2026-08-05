@@ -636,6 +636,102 @@ func TestUpdateFilteredPoliciesTxn(t *testing.T) {
 	testGetPolicyWithoutOrder(t, e, [][]string{{"alice", "data1", "write"}, {"bob", "data2", "read"}, {"data2_admin", "data2", "read"}, {"data2_admin", "data2", "write"}})
 }
 
+// testSavePolicyEmpty checks that clearing every rule and saving succeeds and
+// leaves the collection empty, instead of failing on an empty InsertMany.
+func testSavePolicyEmpty(t *testing.T, dbURL string) {
+	t.Helper()
+
+	initPolicy(t, dbURL)
+
+	a, err := NewAdapter(dbURL)
+	if err != nil {
+		panic(err)
+	}
+
+	e, err := casbin.NewEnforcer("examples/rbac_model.conf", a)
+	if err != nil {
+		panic(err)
+	}
+
+	e.ClearPolicy()
+	if err := e.SavePolicy(); err != nil {
+		t.Fatalf("Expected SavePolicy() of an empty policy to be successful; got %v", err)
+	}
+
+	adapter := a.(*adapter)
+
+	ctx, cancel := context.WithTimeout(context.TODO(), adapter.timeout)
+	defer cancel()
+
+	count, err := adapter.collection.CountDocuments(ctx, bson.D{})
+	if err != nil {
+		panic(err)
+	}
+	if count != 0 {
+		t.Errorf("Expected the collection to be empty after saving an empty policy; got %d rule(s)", count)
+	}
+
+	// The empty policy must also survive a round trip through the database.
+	if err := e.LoadPolicy(); err != nil {
+		t.Errorf("Expected LoadPolicy() to be successful; got %v", err)
+	}
+	testGetPolicy(t, e, [][]string{})
+
+	// Saving a non-empty policy again must still work after the collection was
+	// emptied, so the fix cannot leave the adapter in a dead state.
+	if _, err := e.AddPolicy("alice", "data1", "read"); err != nil {
+		t.Errorf("Expected AddPolicy() to be successful; got %v", err)
+	}
+	if err := e.SavePolicy(); err != nil {
+		t.Errorf("Expected SavePolicy() to be successful; got %v", err)
+	}
+	if err := e.LoadPolicy(); err != nil {
+		t.Errorf("Expected LoadPolicy() to be successful; got %v", err)
+	}
+	testGetPolicy(t, e, [][]string{{"alice", "data1", "read"}})
+}
+
+func TestSavePolicyEmpty(t *testing.T) {
+	testSavePolicyEmpty(t, getDbURL())
+}
+
+func TestSavePolicyEmptyTxn(t *testing.T) {
+	testSavePolicyEmpty(t, getReplicaSetURL())
+}
+
+// TestSavePolicyAtomic checks that a failing save leaves the previously stored
+// policy intact, rather than wiping it on the way to an error.
+func TestSavePolicyAtomic(t *testing.T) {
+	initPolicy(t, getReplicaSetURL())
+
+	a, err := NewAdapter(getReplicaSetURL())
+	if err != nil {
+		panic(err)
+	}
+
+	adapter := a.(*adapter)
+
+	// Two identical rules violate the unique index, so the insert fails after
+	// the delete has already run inside the same transaction.
+	duplicate := savePolicyLine("p", []string{"alice", "data1", "read"})
+	lines := []interface{}{&duplicate, &duplicate}
+
+	if err := adapter.savePolicyTxn(lines); err == nil {
+		t.Fatal("Expected the save to fail on the unique index, but it succeeded")
+	}
+
+	ctx, cancel := context.WithTimeout(context.TODO(), adapter.timeout)
+	defer cancel()
+
+	count, err := adapter.collection.CountDocuments(ctx, bson.D{})
+	if err != nil {
+		panic(err)
+	}
+	if count != 4 {
+		t.Errorf("Expected the 4 stored rules to survive a failed save; got %d rule(s)", count)
+	}
+}
+
 func TestSavePolicyPreservesIndexes(t *testing.T) {
 	// Initialize with some policies
 	initPolicy(t, getDbURL())

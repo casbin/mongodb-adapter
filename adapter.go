@@ -226,17 +226,6 @@ func (a *adapter) close() {
 	_ = a.client.Disconnect(ctx)
 }
 
-func (a *adapter) dropTable() error {
-	ctx, cancel := context.WithTimeout(context.TODO(), a.timeout)
-	defer cancel()
-
-	_, err := a.collection.DeleteMany(ctx, bson.D{{}})
-	if err != nil {
-		return err
-	}
-	return nil
-}
-
 func loadPolicyLine(line CasbinRule, model model.Model) error {
 	var p = []string{line.PType,
 		line.V0, line.V1, line.V2, line.V3, line.V4, line.V5}
@@ -325,12 +314,14 @@ func savePolicyLine(ptype string, rule []string) CasbinRule {
 }
 
 // SavePolicy saves policy to database.
+//
+// The stored policy is replaced as a whole. The rules are collected from the
+// model before the collection is touched, and the delete and the insert run
+// inside a transaction when the server supports one, so that a failure can
+// never leave the stored policy erased or half written.
 func (a *adapter) SavePolicy(model model.Model) error {
 	if a.filtered {
 		return errors.New("cannot save a filtered policy")
-	}
-	if err := a.dropTable(); err != nil {
-		return err
 	}
 
 	var lines []interface{}
@@ -348,8 +339,65 @@ func (a *adapter) SavePolicy(model model.Model) error {
 			lines = append(lines, &line)
 		}
 	}
+
+	err := a.savePolicyTxn(lines)
+	if err == nil {
+		return nil
+	}
+	// (IllegalOperation) Transaction numbers are only allowed on a replica set member or mongos
+	if mongoErr, ok := err.(mongo.CommandError); !ok || mongoErr.Code != 20 {
+		return err
+	}
+
+	log.Println("[WARNING]: As your mongodb server doesn't allow a replica set, transaction operation is not supported. So Casbin Adapter will run non-transactional saving!")
+	return a.savePolicy(lines)
+}
+
+// savePolicyTxn replaces the stored policy inside a transaction, so the old
+// rules are only dropped if the new ones can be written in the same unit.
+func (a *adapter) savePolicyTxn(lines []interface{}) error {
 	ctx, cancel := context.WithTimeout(context.TODO(), a.timeout)
 	defer cancel()
+
+	session, err := a.client.StartSession()
+	if err != nil {
+		return err
+	}
+	defer session.EndSession(context.TODO())
+
+	_, err = session.WithTransaction(ctx, func(sessionCtx context.Context) (interface{}, error) {
+		return nil, a.replacePolicy(sessionCtx, lines)
+	})
+
+	return err
+}
+
+// savePolicy replaces the stored policy without a transaction. It is the
+// fallback for servers that are neither a replica set member nor a mongos.
+func (a *adapter) savePolicy(lines []interface{}) error {
+	ctx, cancel := context.WithTimeout(context.TODO(), a.timeout)
+	defer cancel()
+
+	return a.replacePolicy(ctx, lines)
+}
+
+// replacePolicy deletes every stored rule and writes the given ones in their
+// place. The caller owns the context so that it can be run inside a session.
+func (a *adapter) replacePolicy(ctx context.Context, lines []interface{}) error {
+	res, err := a.collection.DeleteMany(ctx, bson.D{})
+	if err != nil {
+		return err
+	}
+
+	// Saving a model that holds no rules is a legitimate way to clear the
+	// store, but InsertMany rejects an empty slice before it ever reaches the
+	// server, so the delete above is all the work there is left to do.
+	if len(lines) == 0 {
+		if res.DeletedCount > 0 {
+			log.Printf("[WARNING]: SavePolicy was called with an empty policy, %d stored rule(s) were deleted.", res.DeletedCount)
+		}
+		return nil
+	}
 
 	if _, err := a.collection.InsertMany(ctx, lines); err != nil {
 		return err
