@@ -717,6 +717,14 @@ func TestSavePolicyAtomic(t *testing.T) {
 
 	adapter := a.(*adapter)
 
+	ctx, cancel := context.WithTimeout(context.TODO(), adapter.timeout)
+	defer cancel()
+
+	before, err := adapter.collection.CountDocuments(ctx, bson.D{})
+	if err != nil {
+		panic(err)
+	}
+
 	// Two identical rules violate the unique index, so the insert fails after
 	// the delete has already run inside the same transaction.
 	duplicate := savePolicyLine("p", []string{"alice", "data1", "read"})
@@ -726,15 +734,12 @@ func TestSavePolicyAtomic(t *testing.T) {
 		t.Fatal("Expected the save to fail on the unique index, but it succeeded")
 	}
 
-	ctx, cancel := context.WithTimeout(context.TODO(), adapter.timeout)
-	defer cancel()
-
-	count, err := adapter.collection.CountDocuments(ctx, bson.D{})
+	after, err := adapter.collection.CountDocuments(ctx, bson.D{})
 	if err != nil {
 		panic(err)
 	}
-	if count != 4 {
-		t.Errorf("Expected the 4 stored rules to survive a failed save; got %d rule(s)", count)
+	if after != before {
+		t.Errorf("Expected the %d stored rules to survive a failed save; got %d rule(s)", before, after)
 	}
 }
 
