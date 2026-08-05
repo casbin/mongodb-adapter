@@ -23,8 +23,8 @@ import (
 
 	"go.mongodb.org/mongo-driver/v2/mongo"
 
-	"github.com/casbin/casbin/v2"
-	"github.com/casbin/casbin/v2/util"
+	"github.com/casbin/casbin/v3"
+	"github.com/casbin/casbin/v3/util"
 	"go.mongodb.org/mongo-driver/v2/bson"
 	mongooptions "go.mongodb.org/mongo-driver/v2/mongo/options"
 )
@@ -48,7 +48,10 @@ func getReplicaSetURL() string {
 
 func testGetPolicy(t *testing.T, e *casbin.Enforcer, res [][]string) {
 	t.Helper()
-	myRes := e.GetPolicy()
+	myRes, err := e.GetPolicy()
+	if err != nil {
+		t.Fatalf("GetPolicy() failed: %v", err)
+	}
 	t.Log("Policy: ", myRes)
 
 	if !util.Array2DEquals(res, myRes) {
@@ -57,7 +60,10 @@ func testGetPolicy(t *testing.T, e *casbin.Enforcer, res [][]string) {
 }
 
 func testGetPolicyWithoutOrder(t *testing.T, e *casbin.Enforcer, res [][]string) {
-	myRes := e.GetPolicy()
+	myRes, err := e.GetPolicy()
+	if err != nil {
+		t.Fatalf("GetPolicy() failed: %v", err)
+	}
 
 	if !arrayEqualsWithoutOrder(myRes, res) {
 		t.Error("Policy: ", myRes, ", supposed to be ", res)
