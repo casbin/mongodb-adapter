@@ -1,5 +1,31 @@
-MongoDB Adapter [![CI](https://github.com/casbin/mongodb-adapter/actions/workflows/ci.yml/badge.svg)](https://github.com/casbin/mongodb-adapter/actions/workflows/ci.yml) [![Coverage Status](https://coveralls.io/repos/github/casbin/mongodb-adapter/badge.svg?branch=master)](https://coveralls.io/github/casbin/mongodb-adapter?branch=master) [![Godoc](https://godoc.org/github.com/casbin/mongodb-adapter?status.svg)](https://godoc.org/github.com/casbin/mongodb-adapter)
+<!--
+Licensed to the Apache Software Foundation (ASF) under one
+or more contributor license agreements. See the NOTICE file
+distributed with this work for additional information
+regarding copyright ownership. The ASF licenses this file
+to you under the Apache License, Version 2.0 (the
+"License"); you may not use this file except in compliance
+with the License. You may obtain a copy of the License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing,
+software distributed under the License is distributed on an
+"AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+KIND, either express or implied. See the License for the
+specific language governing permissions and limitations
+under the License.
+-->
+
+MongoDB Adapter
 ====
+
+[![Go Report Card](https://goreportcard.com/badge/github.com/apache/casbin-mongodb-adapter)](https://goreportcard.com/report/github.com/apache/casbin-mongodb-adapter)
+[![Build](https://github.com/apache/casbin-mongodb-adapter/actions/workflows/ci.yml/badge.svg)](https://github.com/apache/casbin-mongodb-adapter/actions/workflows/ci.yml)
+[![Godoc](https://godoc.org/github.com/apache/casbin-mongodb-adapter?status.svg)](https://pkg.go.dev/github.com/casbin/mongodb-adapter/v4)
+[![Release](https://img.shields.io/github/release/apache/casbin-mongodb-adapter.svg)](https://github.com/apache/casbin-mongodb-adapter/releases/latest)
+[![Discord](https://img.shields.io/discord/1022748306096537660?logo=discord&label=discord&color=5865F2)](https://discord.gg/S5UjpzGZjN)
+[![Sourcegraph](https://sourcegraph.com/github.com/apache/casbin-mongodb-adapter/-/badge.svg)](https://sourcegraph.com/github.com/apache/casbin-mongodb-adapter?badge)
 
 MongoDB Adapter is the [Mongo DB](https://www.mongodb.com) adapter for [Casbin](https://github.com/casbin/casbin). With this library, Casbin can load policy from MongoDB or save policy to it.
 

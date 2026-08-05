@@ -70,26 +70,39 @@ jobs:
           PRERELEASE: ${{ steps.meta.outputs.prerelease }}
           BASENAME: ${{ steps.meta.outputs.basename }}
         run: |
-          if [[ "${PRERELEASE}" == "true" ]]; then
-            printf 'Release candidate for version `%s`. This is **not** a released version; it is the source artifact for the Apache release vote.\n' "${VERSION%%-rc*}"
-          else
-            printf 'Version `%s`.\n' "${VERSION}"
-          fi
-          printf '\n| Asset | Description |\n| --- | --- |\n'
-          printf '| `%s.tar.gz` | Source release |\n' "${BASENAME}"
-          printf '| `%s.tar.gz.sha512` | SHA-512 checksum |\n\n' "${BASENAME}"
-          printf 'The release manager signs the tarball locally with their own GPG key before starting the vote.\n'
-        # shellcheck: the script above deliberately keeps release notes minimal
-        # (per the project's policy: no extra Apache processes in CI).
+          set -euo pipefail
+          {
+            if [[ "${PRERELEASE}" == "true" ]]; then
+              printf 'Release candidate for version `%s`. This is **not** a released version; it is the source artifact for the Apache release vote.\n\n' "${VERSION%%-rc*}"
+            else
+              printf 'Version `%s`.\n\n' "${VERSION}"
+            fi
+            printf '| Asset | Description |\n| --- | --- |\n'
+            printf '| `%s.tar.gz` | Source release |\n' "${BASENAME}"
+            printf '| `%s.tar.gz.sha512` | SHA-512 checksum |\n\n' "${BASENAME}"
+            printf 'The release manager signs the tarball locally with their own GPG key before starting the vote.\n'
+          } > release-notes.md
+          cat release-notes.md
 
       - name: Create GitHub release
-        uses: softprops/action-gh-release@v2
-        with:
-          tag_name: ${{ steps.meta.outputs.tag }}
-          name: Casbin MongoDB Adapter ${{ steps.meta.outputs.tag }}
-          body_path: release-notes.md
-          draft: false
-          prerelease: ${{ steps.meta.outputs.prerelease == 'true' }}
-          files: |
-            dist/${{ steps.meta.outputs.basename }}.tar.gz
-            dist/${{ steps.meta.outputs.basename }}.tar.gz.sha512
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG: ${{ steps.meta.outputs.tag }}
+          PRERELEASE: ${{ steps.meta.outputs.prerelease }}
+        run: |
+          set -euo pipefail
+          if [[ "${PRERELEASE}" == "true" ]]; then
+            # A candidate is never "latest" - it has not been voted on yet.
+            KIND=(--prerelease --latest=false)
+          else
+            KIND=(--latest)
+          fi
+
+          # Idempotent, so a re-run after a failure further down still works.
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            echo "Release $TAG already exists, updating it."
+            gh release edit "$TAG" --title "Casbin MongoDB Adapter $TAG" --notes-file release-notes.md "${KIND[@]}"
+            gh release upload "$TAG" dist/* --clobber
+          else
+            gh release create "$TAG" --title "Casbin MongoDB Adapter $TAG" --notes-file release-notes.md "${KIND[@]}" dist/*
+          fi
