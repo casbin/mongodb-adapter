@@ -1,5 +1,12 @@
-MongoDB Adapter [![CI](https://github.com/apache/casbin-mongodb-adapter/actions/workflows/ci.yml/badge.svg)](https://github.com/apache/casbin-mongodb-adapter/actions/workflows/ci.yml) [![Coverage Status](https://coveralls.io/repos/github/apache/casbin-mongodb-adapter/badge.svg?branch=master)](https://coveralls.io/github/apache/casbin-mongodb-adapter?branch=master) [![Godoc](https://godoc.org/github.com/apache/casbin-mongodb-adapter?status.svg)](https://godoc.org/github.com/apache/casbin-mongodb-adapter)
+MongoDB Adapter
 ====
+
+[![Build](https://github.com/apache/casbin-mongodb-adapter/actions/workflows/ci.yml/badge.svg)](https://github.com/apache/casbin-mongodb-adapter/actions/workflows/ci.yml)
+[![Coverage Status](https://coveralls.io/repos/github/apache/casbin-mongodb-adapter/badge.svg?branch=master)](https://coveralls.io/github/apache/casbin-mongodb-adapter?branch=master)
+[![Godoc](https://godoc.org/github.com/apache/casbin-mongodb-adapter?status.svg)](https://pkg.go.dev/github.com/apache/casbin-mongodb-adapter/v4)
+[![Release](https://img.shields.io/github/release/apache/casbin-mongodb-adapter.svg)](https://github.com/apache/casbin-mongodb-adapter/releases/latest)
+[![License](https://img.shields.io/github/license/apache/casbin-mongodb-adapter)](https://github.com/apache/casbin-mongodb-adapter/blob/master/LICENSE)
+[![Discord](https://img.shields.io/discord/1022748306096537660?logo=discord&label=discord&color=5865F2)](https://discord.gg/S5UjpzGZjN)
 
 MongoDB Adapter is the [Mongo DB](https://www.mongodb.com) adapter for [Casbin](https://github.com/casbin/casbin). With this library, Casbin can load policy from MongoDB or save policy to it.
 
