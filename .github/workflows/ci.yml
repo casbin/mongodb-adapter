@@ -1,35 +1,75 @@
 name: CI
 
-on: [push,pull_request]
+on: [push, pull_request]
+
+permissions:
+  contents: read
 
 jobs:
 
-  test: 
+  test:
     runs-on: ubuntu-latest
 
     services:
       mongodb:
-        image: mongo
+        image: mongo:8.0
         ports:
           - 27017:27017
 
     steps:
+      - uses: actions/checkout@v4
+
       - name: Set up Go
-        uses: actions/setup-go@v2
+        uses: actions/setup-go@v5
         with:
           go-version: '1.20'
 
-      - name: Start MongoDB
-        uses: supercharge/mongodb-github-action@1.7.0
-        with:
-          mongodb-version: 4.4
-          mongodb-replica-set: test-rs
-          mongodb-port: 42069
+      # Started with plain docker instead of a third-party action: the ASF org
+      # only allows actions owned by GitHub or by the enterprise allow-list.
+      # A service container cannot be used here because the replica set needs a
+      # custom mongod command plus rs.initiate().
+      - name: Start MongoDB replica set
+        run: |
+          set -euo pipefail
+          docker run -d --name mongo-rs -p 42069:42069 mongo:8.0 \
+            mongod --replSet test-rs --port 42069 --bind_ip_all
 
-      - uses: actions/checkout@v2
+          echo "Waiting for mongod to accept connections..."
+          for _ in $(seq 1 60); do
+            if docker exec mongo-rs mongosh --port 42069 --quiet \
+                --eval 'db.adminCommand({ ping: 1 })' >/dev/null 2>&1; then
+              break
+            fi
+            sleep 2
+          done
+
+          docker exec mongo-rs mongosh --port 42069 --quiet --eval \
+            'rs.initiate({ _id: "test-rs", members: [{ _id: 0, host: "127.0.0.1:42069" }] })'
+
+          echo "Waiting for the replica set to elect a primary..."
+          for _ in $(seq 1 60); do
+            if docker exec mongo-rs mongosh --port 42069 --quiet \
+                --eval 'quit(db.hello().isWritablePrimary ? 0 : 1)' >/dev/null 2>&1; then
+              exit 0
+            fi
+            sleep 2
+          done
+
+          echo "Replica set did not become primary in time" >&2
+          docker logs mongo-rs
+          exit 1
+
       - name: Run Unit tests
         run: go test -v -coverprofile=./profile.cov ./...
 
-      - uses: shogo82148/actions-goveralls@v1
+      - name: Coverage summary
+        if: always()
+        run: go tool cover -func=./profile.cov
+
+      - name: Upload coverage profile
+        if: always()
+        uses: actions/upload-artifact@v4
         with:
-          path-to-profile: ./profile.cov
+          name: coverage-profile
+          path: ./profile.cov
+          if-no-files-found: ignore
